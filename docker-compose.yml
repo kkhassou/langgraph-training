@@ -1,0 +1,19 @@
+services:
+  langgraph-training:
+    build: .
+    ports:
+      - "8001:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SLACK_TOKEN=${SLACK_TOKEN}
+      - JIRA_TOKEN=${JIRA_TOKEN}
+      - JIRA_SERVER=${JIRA_SERVER}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+      - ./docs:/app/docs
+      - ./scripts:/app/scripts
+      - ./uploads:/app/uploads
+    restart: unless-stopped
