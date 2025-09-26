@@ -123,16 +123,16 @@ Please provide a clear, concise summary that captures the main points and key in
             result = await self.graph.ainvoke(initial_state)
 
             # Extract results
-            if "error" in result.data:
+            if "error" in result["data"]:
                 return PPTSummaryOutput(
                     summary="",
                     success=False,
-                    error_message=result.data["error"]
+                    error_message=result["data"]["error"]
                 )
 
-            summary = result.data.get("llm_response", "No summary generated")
-            slide_count = result.data.get("slide_count", 0)
-            extracted_slides = result.data.get("extracted_text", [])
+            summary = result["data"].get("llm_response", "No summary generated")
+            slide_count = result["data"].get("slide_count", 0)
+            extracted_slides = result["data"].get("extracted_text", [])
 
             return PPTSummaryOutput(
                 summary=summary,

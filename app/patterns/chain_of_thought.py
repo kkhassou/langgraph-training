@@ -216,16 +216,16 @@ Summarize the key insights from each step and draw your conclusion.
             result = await self.graph.ainvoke(initial_state)
 
             # Extract results
-            if "error" in result.data:
+            if "error" in result["data"]:
                 return ChainOfThoughtOutput(
                     final_answer="",
                     success=False,
-                    error_message=result.data["error"]
+                    error_message=result["data"]["error"]
                 )
 
-            final_answer = result.data.get("final_answer", "No answer generated")
-            reasoning_steps = result.data.get("completed_steps", [])
-            thought_process = result.data.get("thought_process", "")
+            final_answer = result["data"].get("final_answer", "No answer generated")
+            reasoning_steps = result["data"].get("completed_steps", [])
+            thought_process = result["data"].get("thought_process", "")
 
             return ChainOfThoughtOutput(
                 final_answer=final_answer,

@@ -133,15 +133,15 @@ Please provide a well-structured report that is easy to read and captures the mo
             result = await self.graph.ainvoke(initial_state)
 
             # Extract results
-            if "error" in result.data:
+            if "error" in result["data"]:
                 return SlackReportOutput(
                     report="",
                     success=False,
-                    error_message=result.data["error"]
+                    error_message=result["data"]["error"]
                 )
 
-            report = result.data.get("llm_response", "No report generated")
-            messages = result.data.get("messages", [])
+            report = result["data"].get("llm_response", "No report generated")
+            messages = result["data"].get("messages", [])
             message_count = len(messages)
 
             return SlackReportOutput(

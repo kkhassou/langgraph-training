@@ -22,7 +22,7 @@ class GeminiNode(BaseNode):
             api_key = validate_gemini_key()
             genai.configure(api_key=api_key)
             self.llm = ChatGoogleGenerativeAI(
-                model="gemini-pro",
+                model="gemini-2.5-flash",
                 google_api_key=api_key,
                 temperature=0.7
             )

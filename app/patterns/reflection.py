@@ -221,16 +221,16 @@ Rate the overall quality from 1-10 and provide specific suggestions for improvem
             result = await self.graph.ainvoke(initial_state)
 
             # Extract results
-            if "error" in result.data:
+            if "error" in result["data"]:
                 return ReflectionOutput(
                     final_output="",
                     success=False,
-                    error_message=result.data["error"]
+                    error_message=result["data"]["error"]
                 )
 
-            final_output = result.data.get("current_output", "No output generated")
-            iterations = result.data.get("iteration", 0)
-            improvement_history = result.data.get("improvement_history", [])
+            final_output = result["data"].get("current_output", "No output generated")
+            iterations = result["data"].get("iteration", 0)
+            improvement_history = result["data"].get("improvement_history", [])
 
             return ReflectionOutput(
                 final_output=final_output,

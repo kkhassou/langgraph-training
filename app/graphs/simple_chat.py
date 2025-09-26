@@ -60,14 +60,14 @@ class SimpleChatGraph:
             result = await self.graph.ainvoke(initial_state)
 
             # Extract response
-            if "error" in result.data:
+            if "error" in result["data"]:
                 return SimpleChatOutput(
                     response="",
                     success=False,
-                    error_message=result.data["error"]
+                    error_message=result["data"]["error"]
                 )
 
-            response = result.data.get("llm_response", "No response generated")
+            response = result["data"].get("llm_response", "No response generated")
 
             return SimpleChatOutput(
                 response=response,

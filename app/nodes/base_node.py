@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NodeState(BaseModel):
     """Base state model for node communication"""
-    messages: list = []
-    data: Dict[str, Any] = {}
-    metadata: Dict[str, Any] = {}
+    messages: list = Field(default_factory=list)
+    data: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class BaseNode(ABC):
