@@ -17,13 +17,16 @@ app = FastAPI(
     ### Available Features:
     - **Gemini LLM**: Text generation using Google Gemini
     - **PowerPoint Ingest**: Extract text from PowerPoint presentations
+    - **Slack Integration (Safe)**: Interact with Slack API with graceful dependency handling
+    - **Jira Integration (Safe)**: Manage Jira issues with graceful dependency handling
 
     ### Getting Started:
     1. Configure your GEMINI_API_KEY in the `.env` file
     2. Try the PowerPoint ingest functionality
     3. Test the Gemini LLM integration
+    4. Explore Slack and Jira safe integrations (work with or without API keys)
 
-    Note: Slack and Jira integrations are temporarily disabled due to missing dependencies.
+    Note: Safe integrations provide mock data when dependencies or API keys are missing.
     """,
     version="1.0.0-minimal",
     contact={
@@ -72,7 +75,7 @@ async def root():
             <p>Welcome to the minimal version of the LangGraph Training Workshop API!</p>
 
             <div class="warning">
-                <strong>⚠️ Note:</strong> This is a minimal version with Slack and Jira integrations temporarily disabled due to missing dependencies.
+                <strong>💡 Note:</strong> This version includes safe Slack and Jira integrations that work with or without external dependencies and API keys.
             </div>
 
             <h2>🚀 Quick Start</h2>
@@ -100,6 +103,16 @@ async def root():
                 Extract text from PowerPoint presentations
             </div>
 
+            <div class="endpoint">
+                <strong><span class="method">POST</span> /nodes/slack-safe</strong><br>
+                Interact with Slack API (safe version with dependency checking)
+            </div>
+
+            <div class="endpoint">
+                <strong><span class="method">POST</span> /nodes/jira-safe</strong><br>
+                Manage Jira issues (safe version with dependency checking)
+            </div>
+
             <h2>🔧 Installation</h2>
             <p>To enable full functionality with Slack and Jira integrations:</p>
             <pre>
@@ -123,7 +136,7 @@ async def health_check():
         "status": "healthy",
         "app_name": settings.app_name + " (Minimal)",
         "version": "1.0.0-minimal",
-        "available_features": ["gemini", "ppt-ingest"]
+        "available_features": ["gemini", "ppt-ingest", "slack-safe", "jira-safe"]
     }
 
 
@@ -135,8 +148,8 @@ async def get_config():
         "debug": settings.debug,
         "configured_apis": {
             "gemini": bool(settings.gemini_api_key),
-            "slack": "disabled (missing dependencies)",
-            "jira": "disabled (missing dependencies)"
+            "slack": "safe mode (works with or without dependencies)",
+            "jira": "safe mode (works with or without dependencies)"
         }
     }
 
