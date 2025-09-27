@@ -59,14 +59,23 @@ class PowerPointIngestNode(BaseNode):
             # Extract text from shapes
             for shape in slide.shapes:
                 if hasattr(shape, "text") and shape.text.strip():
+                    text_content = shape.text.strip()
+                    
                     # Try to identify title
-                    if hasattr(shape, "placeholder_format") and shape.placeholder_format:
-                        if shape.placeholder_format.type == 1:  # Title placeholder
-                            slide_content["title"] = shape.text.strip()
-                        else:
-                            slide_content["content"].append(shape.text.strip())
+                    is_title = False
+                    try:
+                        # Check if it's a placeholder and if it's a title
+                        if hasattr(shape, "placeholder_format") and shape.placeholder_format is not None:
+                            if shape.placeholder_format.type == 1:  # Title placeholder
+                                is_title = True
+                    except Exception:
+                        # If accessing placeholder_format fails, treat as regular content
+                        pass
+                    
+                    if is_title:
+                        slide_content["title"] = text_content
                     else:
-                        slide_content["content"].append(shape.text.strip())
+                        slide_content["content"].append(text_content)
 
             # Extract notes
             if slide.notes_slide and slide.notes_slide.notes_text_frame:
