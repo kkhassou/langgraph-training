@@ -1,0 +1,3 @@
+mcp>=1.0.0
+jira>=3.5.2
+asyncio-compat>=0.1.2

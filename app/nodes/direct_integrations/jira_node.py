@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 
 from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
-from app.services.jira_service import JiraService
+from app.services.direct_services.jira_service import JiraService
 
 
 class JiraActionType(str, Enum):

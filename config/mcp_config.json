@@ -1,0 +1,47 @@
+{
+  "servers": {
+    "slack": {
+      "command": ["python", "mcp_servers/slack/server.py"],
+      "env": {
+        "SLACK_TOKEN": "${SLACK_TOKEN}"
+      },
+      "description": "Slack integration via MCP",
+      "capabilities": ["tools"],
+      "tools": [
+        "list_channels",
+        "get_messages",
+        "post_message",
+        "get_user",
+        "search_messages",
+        "get_channel_info",
+        "create_channel"
+      ]
+    },
+    "jira": {
+      "command": ["python", "mcp_servers/jira/server.py"],
+      "env": {
+        "JIRA_TOKEN": "${JIRA_TOKEN}",
+        "JIRA_SERVER": "${JIRA_SERVER}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}"
+      },
+      "description": "Jira integration via MCP",
+      "capabilities": ["tools"],
+      "tools": [
+        "list_projects",
+        "search_issues",
+        "create_issue",
+        "get_issue",
+        "update_issue",
+        "add_comment",
+        "get_transitions",
+        "transition_issue",
+        "get_user"
+      ]
+    }
+  },
+  "client_config": {
+    "timeout": 30,
+    "retry_count": 3,
+    "log_level": "INFO"
+  }
+}

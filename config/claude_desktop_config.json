@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "slack-mcp": {
+      "command": "python",
+      "args": ["/path/to/langgraph-training/mcp_servers/slack/server.py"],
+      "env": {
+        "SLACK_TOKEN": "xoxb-your-slack-bot-token-here"
+      }
+    },
+    "jira-mcp": {
+      "command": "python",
+      "args": ["/path/to/langgraph-training/mcp_servers/jira/server.py"],
+      "env": {
+        "JIRA_TOKEN": "your-jira-api-token-here",
+        "JIRA_SERVER": "https://your-domain.atlassian.net",
+        "JIRA_EMAIL": "your-email@example.com"
+      }
+    }
+  }
+}

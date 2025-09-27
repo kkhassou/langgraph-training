@@ -1,0 +1,59 @@
+{
+  "name": "jira-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Jira API integration",
+  "author": "LangGraph Training Team",
+  "license": "MIT",
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false,
+    "logging": true
+  },
+  "tools": [
+    {
+      "name": "list_projects",
+      "description": "List all projects in the Jira instance"
+    },
+    {
+      "name": "search_issues",
+      "description": "Search for issues using JQL"
+    },
+    {
+      "name": "create_issue",
+      "description": "Create a new issue"
+    },
+    {
+      "name": "get_issue",
+      "description": "Get issue details"
+    },
+    {
+      "name": "update_issue",
+      "description": "Update an existing issue"
+    },
+    {
+      "name": "add_comment",
+      "description": "Add a comment to an issue"
+    },
+    {
+      "name": "get_transitions",
+      "description": "Get available transitions for an issue"
+    },
+    {
+      "name": "transition_issue",
+      "description": "Transition an issue to a new status"
+    },
+    {
+      "name": "get_user",
+      "description": "Get user information"
+    }
+  ],
+  "environment": {
+    "required": [
+      "JIRA_TOKEN",
+      "JIRA_SERVER",
+      "JIRA_EMAIL"
+    ],
+    "optional": []
+  }
+}

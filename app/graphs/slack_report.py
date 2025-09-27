@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, END
 from pydantic import BaseModel
 
 from app.nodes.base_node import NodeState
-from app.nodes.slack_node import SlackNode, SlackActionType
+from app.nodes.direct_integrations.slack_node import SlackNode, SlackActionType
 from app.nodes.llm_gemini import GeminiNode
 
 

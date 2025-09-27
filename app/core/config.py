@@ -1,23 +1,26 @@
-from pydantic_settings import BaseSettings
 from typing import Optional
+import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 
-class Settings(BaseSettings):
-    app_name: str = "LangGraph Training"
-    debug: bool = True
+class Settings:
+    """Simple settings class for environment configuration"""
 
-    # API Keys
-    gemini_api_key: Optional[str] = None
-    slack_token: Optional[str] = None
+    def __init__(self):
+        self.app_name: str = "LangGraph Training"
+        self.debug: bool = True
 
-    # Jira Configuration
-    jira_token: Optional[str] = None
-    jira_server: Optional[str] = None
-    jira_email: Optional[str] = None
+        # API Keys
+        self.gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
+        self.slack_token: Optional[str] = os.getenv("SLACK_TOKEN")
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+        # Jira Configuration
+        self.jira_token: Optional[str] = os.getenv("JIRA_TOKEN")
+        self.jira_server: Optional[str] = os.getenv("JIRA_SERVER")
+        self.jira_email: Optional[str] = os.getenv("JIRA_EMAIL")
 
 
 settings = Settings()

@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 
 from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
-from app.services.slack_service import SlackService
+from app.services.direct_services.slack_service import SlackService
 
 
 class SlackActionType(str, Enum):
