@@ -68,9 +68,9 @@ class PPTSummaryGraph:
 
         # Create summarization prompt
         style_prompts = {
-            "bullet_points": "Summarize the following PowerPoint presentation in clear bullet points:",
-            "paragraph": "Summarize the following PowerPoint presentation in a cohesive paragraph:",
-            "key_insights": "Extract the key insights and main takeaways from the following PowerPoint presentation:"
+            "bullet_points": "以下のPowerPointプレゼンテーションを分かりやすい箇条書きで要約してください：",
+            "paragraph": "以下のPowerPointプレゼンテーションを一貫した段落で要約してください：",
+            "key_insights": "以下のPowerPointプレゼンテーションから重要な洞察と主要なポイントを抽出してください："
         }
 
         prompt = f"""
@@ -78,7 +78,7 @@ class PPTSummaryGraph:
 
 {content_text}
 
-Please provide a clear, concise summary that captures the main points and key information from the presentation.
+プレゼンテーションの主要なポイントと重要な情報を捉えた、明確で簡潔な要約を日本語で提供してください。
         """.strip()
 
         # Update state for Gemini node
