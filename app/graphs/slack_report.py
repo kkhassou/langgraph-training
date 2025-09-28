@@ -73,18 +73,18 @@ class SlackReportGraph:
 
         # Create report generation prompt
         report_prompts = {
-            "summary": "Analyze the following Slack messages and provide a comprehensive summary of the discussions, key topics, and overall themes:",
-            "insights": "Analyze the following Slack messages and extract key insights, trends, and important observations:",
-            "action_items": "Analyze the following Slack messages and identify action items, decisions made, and follow-up tasks:"
+            "summary": "以下のSlackメッセージを分析し、議論内容、主要トピック、全体的なテーマの包括的な要約を日本語で提供してください：",
+            "insights": "以下のSlackメッセージを分析し、主要な洞察、トレンド、重要な観察事項を日本語で抽出してください：",
+            "action_items": "以下のSlackメッセージを分析し、アクションアイテム、決定事項、フォローアップタスクを日本語で特定してください："
         }
 
         prompt = f"""
 {report_prompts.get(report_type, report_prompts["summary"])}
 
-Channel Messages ({len(messages)} total):
+チャンネルメッセージ（全{len(messages)}件）：
 {messages_text}
 
-Please provide a well-structured report that is easy to read and captures the most important information from these conversations.
+これらの会話から最も重要な情報を捉えた、読みやすい構造化されたレポートを日本語で提供してください。
         """.strip()
 
         # Update state for Gemini node
