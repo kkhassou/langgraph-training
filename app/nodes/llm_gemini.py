@@ -3,7 +3,14 @@ import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
-from app.core.dependencies import validate_gemini_key
+from app.core.config import settings
+
+
+def validate_gemini_key() -> str:
+    """Validate and return Gemini API key"""
+    if not settings.gemini_api_key:
+        raise ValueError("GEMINI_API_KEY is not configured")
+    return settings.gemini_api_key
 
 
 class GeminiNode(BaseNode):
