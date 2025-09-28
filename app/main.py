@@ -29,8 +29,8 @@ app = FastAPI(
     ### ワークショップの流れ:
     - ステップ1: 個別ノードをテスト（`/nodes/`）
     - ステップ2: 完全なワークフローを実行（`/graphs/`）
-    - ステップ3: デザインパターンを適用（`/graphs/reflection`、`/graphs/chain-of-thought`）
-    - ステップ4: 図で可視化（`/graphs/diagrams/{graph_name}`）
+    - ステップ3: デザインパターンを適用（`/patterns`）
+    - ステップ4: 図で可視化（`/docs/diagrams/{graph_name}`）
 
     """,
     version="1.0.0",
