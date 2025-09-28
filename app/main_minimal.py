@@ -17,16 +17,15 @@ app = FastAPI(
     ### Available Features:
     - **Gemini LLM**: Text generation using Google Gemini
     - **PowerPoint Ingest**: Extract text from PowerPoint presentations
-    - **Slack Integration (Safe)**: Interact with Slack API with graceful dependency handling
-    - **Jira Integration (Safe)**: Manage Jira issues with graceful dependency handling
+    - **Slack MCP Integration**: Interact with Slack via Model Context Protocol server
 
     ### Getting Started:
     1. Configure your GEMINI_API_KEY in the `.env` file
     2. Try the PowerPoint ingest functionality
     3. Test the Gemini LLM integration
-    4. Explore Slack and Jira safe integrations (work with or without API keys)
+    4. Explore Slack MCP integration
 
-    Note: Safe integrations provide mock data when dependencies or API keys are missing.
+    Note: Slack MCP integration provides real Slack data when configured with valid tokens.
     """,
     version="1.0.0-minimal",
     contact={
@@ -103,14 +102,11 @@ async def root():
                 Extract text from PowerPoint presentations
             </div>
 
-            <div class="endpoint">
-                <strong><span class="method">POST</span> /nodes/slack-safe</strong><br>
-                Interact with Slack API (safe version with dependency checking)
-            </div>
+
 
             <div class="endpoint">
-                <strong><span class="method">POST</span> /nodes/jira-safe</strong><br>
-                Manage Jira issues (safe version with dependency checking)
+                <strong><span class="method">POST</span> /nodes/slack-mcp</strong><br>
+                Interact with Slack API via Model Context Protocol server
             </div>
 
             <h2>🔧 Installation</h2>
@@ -136,7 +132,7 @@ async def health_check():
         "status": "healthy",
         "app_name": settings.app_name + " (Minimal)",
         "version": "1.0.0-minimal",
-        "available_features": ["gemini", "ppt-ingest", "slack-safe", "jira-safe"]
+        "available_features": ["gemini", "ppt-ingest", "slack-mcp"]
     }
 
 
@@ -148,8 +144,7 @@ async def get_config():
         "debug": settings.debug,
         "configured_apis": {
             "gemini": bool(settings.gemini_api_key),
-            "slack": "safe mode (works with or without dependencies)",
-            "jira": "safe mode (works with or without dependencies)"
+            "slack_mcp": "active (MCP server with real Slack integration)"
         }
     }
 

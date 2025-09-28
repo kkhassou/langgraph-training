@@ -1,217 +1,214 @@
-from typing import Dict, Any, List, Optional
+from typing import List, Dict, Any, Optional
 from enum import Enum
 
-from app.nodes.mcp_integrations.mcp_base import MCPBaseNode
-from app.nodes.base_node import NodeState, NodeInput, NodeOutput
+from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
+from app.services.mcp_services.slack_mcp_client import SlackMCPService
 
 
 class SlackMCPActionType(str, Enum):
-    GET_MESSAGES = "get_messages"
-    POST_MESSAGE = "post_message"
-    SEARCH_MESSAGES = "search_messages"
     GET_CHANNELS = "get_channels"
-    GET_CHANNEL_INFO = "get_channel_info"
-    GET_USER = "get_user"
-    CREATE_CHANNEL = "create_channel"
+    SEND_MESSAGE = "send_message"
+    GET_MESSAGES = "get_messages"
+    LIST_TOOLS = "list_tools"
 
 
-class SlackMCPNode(MCPBaseNode):
-    """Node for Slack operations using MCP server"""
+class SlackMCPNode(BaseNode):
+    """Node for Slack operations via MCP server"""
 
     def __init__(self):
         super().__init__(
             name="slack_mcp_node",
-            mcp_server_name="slack",
             description="Interact with Slack API via MCP server"
         )
+        self.service = SlackMCPService()
 
-    async def execute_mcp(self, state: NodeState) -> NodeState:
+    async def execute(self, state: NodeState) -> NodeState:
         """Execute Slack MCP operation"""
-        action = state.data.get("action", SlackMCPActionType.GET_CHANNELS)
+        try:
+            action = state.data.get("action", SlackMCPActionType.GET_CHANNELS)
 
-        if action == SlackMCPActionType.GET_CHANNELS:
-            result = await self.call_mcp_tool("list_channels", {})
-            if not result.get("isError"):
-                channels_data = result.get("content", {})
-                if isinstance(channels_data, str):
-                    import ast
-                    channels_data = ast.literal_eval(channels_data)
+            if action == SlackMCPActionType.GET_CHANNELS:
+                result = await self.service.get_channels()
 
-                channels = channels_data.get("channels", [])
-                state.data["channels"] = channels
-                state.messages.append(f"Retrieved {len(channels)} channels via MCP")
+                # Extract message from MCP response content
+                content = result.get("content", [])
+                if content and len(content) > 0:
+                    message = content[0].get("text", "Retrieved channels via MCP")
+                    
+                    # Parse channel information from the text message if available
+                    channels = []
+                    if "Found" in message and "channels" in message:
+                        # Extract channel count and info from message
+                        lines = message.split('\n')
+                        for line in lines[1:]:  # Skip the first line with count
+                            if line.strip().startswith('•'):
+                                # Parse line like "• #general (CV16XK97C)"
+                                parts = line.strip()[2:].split(' (')
+                                if len(parts) == 2:
+                                    name = parts[0].replace('#', '')
+                                    channel_id = parts[1].replace(')', '')
+                                    channels.append({
+                                        "id": channel_id,
+                                        "name": name,
+                                        "is_private": False
+                                    })
+                    
+                    state.data["channels"] = channels
+                    # Use the original detailed message as output
+                    state.messages.append(message)
+                else:
+                    # Fallback: try to get channels from result directly
+                    channels = result.get("channels", [])
+                    state.data["channels"] = channels
+                    message = f"Retrieved {len(channels)} channels via MCP"
+                    state.messages.append(message)
 
-        elif action == SlackMCPActionType.GET_MESSAGES:
-            channel_id = state.data.get("channel_id")
-            if not channel_id:
-                raise ValueError("channel_id is required for get_messages action")
+            elif action == SlackMCPActionType.SEND_MESSAGE:
+                channel = state.data.get("channel")
+                text = state.data.get("text")
 
-            arguments = {
-                "channel_id": channel_id,
-                "limit": state.data.get("limit", 100),
-                "days_back": state.data.get("days_back", 7)
-            }
+                if not channel or not text:
+                    raise ValueError("channel and text are required for send_message action")
 
-            result = await self.call_mcp_tool("get_messages", arguments)
-            if not result.get("isError"):
-                messages_data = result.get("content", {})
-                if isinstance(messages_data, str):
-                    import ast
-                    messages_data = ast.literal_eval(messages_data)
+                result = await self.service.send_message(channel, text)
 
-                messages = messages_data.get("messages", [])
+                # Extract message info from MCP response
+                message_info = result.get("message", {})
+                state.data["sent_message"] = message_info
+
+                # Extract message from MCP response
+                content = result.get("content", [])
+                if content and len(content) > 0:
+                    message = content[0].get("text", f"Message sent to {channel} via MCP")
+                else:
+                    message = f"Message sent to {channel} via MCP"
+
+                state.messages.append(message)
+
+            elif action == SlackMCPActionType.GET_MESSAGES:
+                channel = state.data.get("channel")
+                if not channel:
+                    raise ValueError("channel is required for get_messages action")
+
+                limit = state.data.get("limit", 10)
+                result = await self.service.get_messages(channel, limit)
+
+                # Extract messages from MCP response
+                messages = result.get("messages", [])
                 state.data["messages"] = messages
-                state.messages.append(f"Retrieved {len(messages)} messages from channel {channel_id} via MCP")
 
-        elif action == SlackMCPActionType.POST_MESSAGE:
-            channel_id = state.data.get("channel_id")
-            text = state.data.get("text")
-            if not channel_id or not text:
-                raise ValueError("channel_id and text are required for post_message action")
+                # Extract message from MCP response
+                content = result.get("content", [])
+                if content and len(content) > 0:
+                    message = content[0].get("text", f"Retrieved {len(messages)} messages via MCP")
+                else:
+                    message = f"Retrieved {len(messages)} messages from {channel} via MCP"
 
-            arguments = {
-                "channel_id": channel_id,
-                "text": text
-            }
-            thread_ts = state.data.get("thread_ts")
-            if thread_ts:
-                arguments["thread_ts"] = thread_ts
+                state.messages.append(message)
 
-            result = await self.call_mcp_tool("post_message", arguments)
-            if not result.get("isError"):
-                post_data = result.get("content", {})
-                if isinstance(post_data, str):
-                    import ast
-                    post_data = ast.literal_eval(post_data)
+            elif action == SlackMCPActionType.LIST_TOOLS:
+                tools = await self.service.list_available_tools()
+                state.data["available_tools"] = tools
+                state.messages.append(f"Retrieved {len(tools)} available MCP tools")
 
-                state.data["post_result"] = post_data
-                state.messages.append(f"Posted message to channel {channel_id} via MCP")
+            state.metadata["node"] = self.name
+            state.metadata["mcp_mode"] = True
+            return state
 
-        elif action == SlackMCPActionType.SEARCH_MESSAGES:
-            query = state.data.get("query")
-            if not query:
-                raise ValueError("query is required for search_messages action")
+        except Exception as e:
+            state.data["error"] = str(e)
+            state.metadata["error_node"] = self.name
+            state.metadata["mcp_mode"] = True
+            return state
 
-            arguments = {
-                "query": query,
-                "count": state.data.get("count", 20)
-            }
-
-            result = await self.call_mcp_tool("search_messages", arguments)
-            if not result.get("isError"):
-                search_data = result.get("content", {})
-                if isinstance(search_data, str):
-                    import ast
-                    search_data = ast.literal_eval(search_data)
-
-                messages = search_data.get("messages", [])
-                state.data["search_results"] = messages
-                state.messages.append(f"Found {len(messages)} messages matching query via MCP")
-
-        elif action == SlackMCPActionType.GET_CHANNEL_INFO:
-            channel_id = state.data.get("channel_id")
-            if not channel_id:
-                raise ValueError("channel_id is required for get_channel_info action")
-
-            result = await self.call_mcp_tool("get_channel_info", {"channel_id": channel_id})
-            if not result.get("isError"):
-                channel_data = result.get("content", {})
-                if isinstance(channel_data, str):
-                    import ast
-                    channel_data = ast.literal_eval(channel_data)
-
-                state.data["channel_info"] = channel_data
-                state.messages.append(f"Retrieved channel info for {channel_id} via MCP")
-
-        elif action == SlackMCPActionType.GET_USER:
-            user_id = state.data.get("user_id")
-            if not user_id:
-                raise ValueError("user_id is required for get_user action")
-
-            result = await self.call_mcp_tool("get_user", {"user_id": user_id})
-            if not result.get("isError"):
-                user_data = result.get("content", {})
-                if isinstance(user_data, str):
-                    import ast
-                    user_data = ast.literal_eval(user_data)
-
-                state.data["user_info"] = user_data
-                state.messages.append(f"Retrieved user info for {user_id} via MCP")
-
-        elif action == SlackMCPActionType.CREATE_CHANNEL:
-            name = state.data.get("name")
-            if not name:
-                raise ValueError("name is required for create_channel action")
-
-            arguments = {
-                "name": name,
-                "is_private": state.data.get("is_private", False)
-            }
-
-            result = await self.call_mcp_tool("create_channel", arguments)
-            if not result.get("isError"):
-                channel_data = result.get("content", {})
-                if isinstance(channel_data, str):
-                    import ast
-                    channel_data = ast.literal_eval(channel_data)
-
-                state.data["created_channel"] = channel_data
-                state.messages.append(f"Created channel '{name}' via MCP")
-
-        # Handle MCP errors
-        if result.get("isError"):
-            error_content = result.get("content", "Unknown MCP error")
-            state.data["error"] = f"MCP Slack error: {error_content}"
-
-        state.metadata["node"] = self.name
-        state.metadata["mcp_server"] = self.mcp_server_name
-        return state
+    async def cleanup(self):
+        """Cleanup MCP service connection"""
+        if self.service:
+            await self.service.disconnect()
 
 
 class SlackMCPInput(NodeInput):
     """Input model for Slack MCP node"""
     action: SlackMCPActionType
-    channel_id: Optional[str] = None
+    channel: Optional[str] = None
     text: Optional[str] = None
-    query: Optional[str] = None
-    user_id: Optional[str] = None
-    name: Optional[str] = None
-    limit: int = 100
-    days_back: int = 7
-    count: int = 20
-    is_private: bool = False
+    limit: int = 10
 
 
 class SlackMCPOutput(NodeOutput):
     """Output model for Slack MCP node"""
     channels: List[Dict[str, Any]] = []
     messages: List[Dict[str, Any]] = []
-    search_results: List[Dict[str, Any]] = []
-    post_result: Optional[Dict[str, Any]] = None
-    channel_info: Optional[Dict[str, Any]] = None
-    user_info: Optional[Dict[str, Any]] = None
-    created_channel: Optional[Dict[str, Any]] = None
+    sent_message: Optional[Dict[str, Any]] = None
+    available_tools: List[Dict[str, Any]] = []
 
 
 async def slack_mcp_node_handler(input_data: SlackMCPInput) -> SlackMCPOutput:
     """Standalone handler for Slack MCP node API endpoint"""
     try:
+        # For get_channels action, directly call the MCP service (known working approach)
+        if input_data.action == SlackMCPActionType.GET_CHANNELS:
+            from app.services.mcp_services.slack_mcp_client import SlackMCPService
+            
+            service = SlackMCPService()
+            try:
+                await service.ensure_connected()
+                result = await service.get_channels()
+                
+                # Parse the detailed response from MCP
+                channels = []
+                output_text = "Retrieved channels successfully"
+                
+                content = result.get("content", [])
+                if content and len(content) > 0:
+                    message = content[0].get("text", "")
+                    output_text = message
+                    
+                    # Parse channel information from the detailed text
+                    if "Found" in message and "channels" in message:
+                        lines = message.split('\n')
+                        for line in lines[1:]:  # Skip the first line with count
+                            if line.strip().startswith('•'):
+                                # Parse line like "• #general (CV16XK97C)"
+                                parts = line.strip()[2:].split(' (')
+                                if len(parts) == 2:
+                                    name = parts[0].replace('#', '')
+                                    channel_id = parts[1].replace(')', '')
+                                    channels.append({
+                                        "id": channel_id,
+                                        "name": name,
+                                        "is_private": False
+                                    })
+                
+                return SlackMCPOutput(
+                    output_text=output_text,
+                    channels=channels,
+                    data={
+                        "action": input_data.action,
+                        "channel": input_data.channel,
+                        "text": input_data.text,
+                        "limit": input_data.limit,
+                        "channels": channels
+                    }
+                )
+                
+            finally:
+                await service.disconnect()
+        
+        # For other actions, use the node-based approach
         node = SlackMCPNode()
         state = NodeState()
         state.data.update({
             "action": input_data.action,
-            "channel_id": input_data.channel_id,
+            "channel": input_data.channel,
             "text": input_data.text,
-            "query": input_data.query,
-            "user_id": input_data.user_id,
-            "name": input_data.name,
             "limit": input_data.limit,
-            "days_back": input_data.days_back,
-            "count": input_data.count,
-            "is_private": input_data.is_private,
         })
 
         result_state = await node.execute(state)
+
+        # Cleanup
+        await node.cleanup()
 
         if "error" in result_state.data:
             return SlackMCPOutput(
@@ -229,11 +226,8 @@ async def slack_mcp_node_handler(input_data: SlackMCPInput) -> SlackMCPOutput:
             output_text=output_text,
             channels=result_state.data.get("channels", []),
             messages=result_state.data.get("messages", []),
-            search_results=result_state.data.get("search_results", []),
-            post_result=result_state.data.get("post_result"),
-            channel_info=result_state.data.get("channel_info"),
-            user_info=result_state.data.get("user_info"),
-            created_channel=result_state.data.get("created_channel"),
+            sent_message=result_state.data.get("sent_message"),
+            available_tools=result_state.data.get("available_tools", []),
             data=result_state.data
         )
 

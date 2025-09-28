@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, END
 from pydantic import BaseModel
 
 from app.nodes.base_node import NodeState
-from app.nodes.direct_integrations.slack_node import SlackNode, SlackActionType
+from app.nodes.mcp_integrations.slack_mcp_node import SlackMCPNode, SlackMCPActionType
 from app.nodes.llm_gemini import GeminiNode
 
 
@@ -28,7 +28,7 @@ class SlackReportGraph:
     """Slack report generation workflow using LangGraph"""
 
     def __init__(self):
-        self.slack_node = SlackNode()
+        self.slack_node = SlackMCPNode()
         self.gemini_node = GeminiNode()
         self.graph = self._build_graph()
 
@@ -52,7 +52,7 @@ class SlackReportGraph:
     async def _collect_messages_step(self, state: NodeState) -> NodeState:
         """Collect messages from Slack channel"""
         # Configure Slack node for message collection
-        state.data["action"] = SlackActionType.GET_MESSAGES
+        state.data["action"] = SlackMCPActionType.GET_MESSAGES
 
         return await self.slack_node.execute(state)
 
