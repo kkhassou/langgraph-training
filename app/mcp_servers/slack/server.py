@@ -78,12 +78,7 @@ async def init_slack_client():
 async def get_channels_tool(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Get list of Slack channels"""
     if not slack_client:
-        # Return mock data when client is not available
-        return [
-            {"id": "C1234567890", "name": "general", "is_private": False},
-            {"id": "C0987654321", "name": "random", "is_private": False},
-            {"id": "C1111111111", "name": "development", "is_private": False}
-        ]
+        raise Exception("Slack client is not initialized. Please check your Slack token configuration.")
 
     try:
         # First try with just public channels to avoid missing_scope for groups:read
@@ -126,21 +121,7 @@ async def get_messages_tool(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
         raise ValueError("channel parameter is required")
 
     if not slack_client:
-        # Return mock data when client is not available
-        return [
-            {
-                "text": f"Mock message 1 from channel {channel}",
-                "user": "U1234567890",
-                "ts": "1234567890.123456",
-                "type": "message"
-            },
-            {
-                "text": f"Mock message 2 from channel {channel}",
-                "user": "U0987654321",
-                "ts": "1234567891.123456",
-                "type": "message"
-            }
-        ]
+        raise Exception("Slack client is not initialized. Please check your Slack token configuration.")
 
     try:
         response = await slack_client.conversations_history(
@@ -179,17 +160,7 @@ async def send_message_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("Both 'channel' and 'text' parameters are required")
 
     if not slack_client:
-        # Return mock data when client is not available
-        return {
-            "ok": True,
-            "ts": "1234567892.123456",
-            "channel": channel,
-            "message": {
-                "text": text,
-                "user": "U_BOT_USER",
-                "ts": "1234567892.123456"
-            }
-        }
+        raise Exception("Slack client is not initialized. Please check your Slack token configuration.")
 
     try:
         response = await slack_client.chat_postMessage(
