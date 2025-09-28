@@ -12,25 +12,26 @@ app = FastAPI(
     description="""
     ## LangGraph Training Workshop API
 
-    This API provides access to various LangGraph nodes and workflows for the training workshop.
+    このAPIは、トレーニングワークショップ用の様々なLangGraphノードとワークフローへのアクセスを提供します。
 
-    ### Features:
-    - **Nodes**: Individual processing units (LLM, PowerPoint, Slack, Jira)
-    - **Graphs**: Composed workflows combining multiple nodes
-    - **Patterns**: Advanced patterns like Reflection and Chain of Thought
-    - **Visualization**: Mermaid diagrams for workflow visualization
+    ### 機能:
+    - **ノード**: 個別の処理ユニット（LLM、PowerPoint、Slack、Jira）
+    - **グラフ**: 複数のノードを組み合わせた構成済みワークフロー
+    - **パターン**: ReflectionやChain of Thoughtなどの高度なパターン
+    - **可視化**: ワークフロー可視化用のMermaid図
 
-    ### Getting Started:
-    1. Configure your API keys in the `.env` file
-    2. Try the individual nodes to understand their functionality
-    3. Explore graph workflows that combine multiple nodes
-    4. Experiment with design patterns for advanced use cases
+    ### はじめに:
+    1. `.env`ファイルでAPIキーを設定してください
+    2. 個別ノードを試して機能を理解してください
+    3. 複数のノードを組み合わせたグラフワークフローを探索してください
+    4. 高度なユースケース向けのデザインパターンを実験してください
 
-    ### Workshop Flow:
-    - Step 1: Test individual nodes (`/nodes/`)
-    - Step 2: Run complete workflows (`/graphs/`)
-    - Step 3: Visualize with diagrams (`/graphs/diagrams/{graph_name}`)
-    - Step 4: Apply design patterns (`/graphs/reflection`, `/graphs/chain-of-thought`)
+    ### ワークショップの流れ:
+    - ステップ1: 個別ノードをテスト（`/nodes/`）
+    - ステップ2: 完全なワークフローを実行（`/graphs/`）
+    - ステップ3: デザインパターンを適用（`/graphs/reflection`、`/graphs/chain-of-thought`）
+    - ステップ4: 図で可視化（`/graphs/diagrams/{graph_name}`）
+
     """,
     version="1.0.0",
     contact={
