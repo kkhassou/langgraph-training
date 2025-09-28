@@ -185,14 +185,6 @@ langgraph-training/
 
 #### MCP 統合サービス (`app/services/mcp_services/`)
 
-##### `app/services/mcp_services/mcp_client.py` 🔗
-
-- **役割**: MCP クライアント管理の中核
-- **機能**:
-  - MCP サーバー接続管理
-  - ツール呼び出し
-  - セッション管理
-
 ##### `app/services/mcp_services/slack_mcp_service.py`
 
 - **役割**: Slack MCP 操作

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from app.nodes.base_node import BaseNode, NodeState
-from app.services.mcp_services.mcp_client import mcp_manager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,18 +14,19 @@ class MCPBaseNode(BaseNode):
         self.mcp_server_name = mcp_server_name
 
     async def get_mcp_client(self):
-        """Get MCP client for this node's server"""
-        return await mcp_manager.get_client(self.mcp_server_name)
+        """Get MCP client for this node's server - placeholder method"""
+        logger.warning(f"MCP client functionality not implemented for {self.mcp_server_name}")
+        return None
 
     async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Call a tool on the MCP server"""
-        async with await self.get_mcp_client() as client:
-            return await client.call_tool(tool_name, arguments)
+        """Call a tool on the MCP server - placeholder method"""
+        logger.warning(f"MCP tool calling not implemented: {tool_name}")
+        return {"error": "MCP functionality not available"}
 
     async def list_mcp_tools(self) -> List[Dict[str, Any]]:
-        """List available tools from the MCP server"""
-        async with await self.get_mcp_client() as client:
-            return await client.list_tools()
+        """List available tools from the MCP server - placeholder method"""
+        logger.warning("MCP tools listing not implemented")
+        return []
 
     def handle_mcp_error(self, error: Exception, context: str = "") -> Dict[str, Any]:
         """Handle MCP-specific errors"""
