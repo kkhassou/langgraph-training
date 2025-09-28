@@ -31,37 +31,24 @@ class SlackMCPNode(BaseNode):
                 result = await self.service.get_channels()
 
                 # Extract message from MCP response content
+                channels = []
                 content = result.get("content", [])
                 if content and len(content) > 0:
-                    message = content[0].get("text", "Retrieved channels via MCP")
-                    
-                    # Parse channel information from the text message if available
-                    channels = []
-                    if "Found" in message and "channels" in message:
-                        # Extract channel count and info from message
-                        lines = message.split('\n')
-                        for line in lines[1:]:  # Skip the first line with count
-                            if line.strip().startswith('•'):
-                                # Parse line like "• #general (CV16XK97C)"
-                                parts = line.strip()[2:].split(' (')
-                                if len(parts) == 2:
-                                    name = parts[0].replace('#', '')
-                                    channel_id = parts[1].replace(')', '')
-                                    channels.append({
-                                        "id": channel_id,
-                                        "name": name,
-                                        "is_private": False
-                                    })
-                    
-                    state.data["channels"] = channels
-                    # Use the original detailed message as output
-                    state.messages.append(message)
+                    text_content = content[0].get("text", "")
+                    try:
+                        # Parse the string representation of the dictionary
+                        import ast
+                        parsed_result = ast.literal_eval(text_content)
+                        channels = parsed_result.get("channels", [])
+                    except:
+                        # Fallback: try to get channels from result directly
+                        channels = result.get("channels", [])
                 else:
-                    # Fallback: try to get channels from result directly
                     channels = result.get("channels", [])
-                    state.data["channels"] = channels
-                    message = f"Retrieved {len(channels)} channels via MCP"
-                    state.messages.append(message)
+                
+                state.data["channels"] = channels
+                message = f"Retrieved {len(channels)} channels via MCP"
+                state.messages.append(message)
 
             elif action == SlackMCPActionType.SEND_MESSAGE:
                 channel = state.data.get("channel")
@@ -91,19 +78,27 @@ class SlackMCPNode(BaseNode):
                     raise ValueError("channel is required for get_messages action")
 
                 limit = state.data.get("limit", 10)
-                result = await self.service.get_messages(channel, limit)
+                days_back = state.data.get("days_back", 7)
+                result = await self.service.get_messages(channel, limit, days_back)
 
                 # Extract messages from MCP response
-                messages = result.get("messages", [])
-                state.data["messages"] = messages
-
-                # Extract message from MCP response
+                messages = []
                 content = result.get("content", [])
                 if content and len(content) > 0:
-                    message = content[0].get("text", f"Retrieved {len(messages)} messages via MCP")
+                    text_content = content[0].get("text", "")
+                    try:
+                        # Parse the string representation of the dictionary
+                        import ast
+                        parsed_result = ast.literal_eval(text_content)
+                        messages = parsed_result.get("messages", [])
+                    except:
+                        # Fallback: try to get messages directly from result
+                        messages = result.get("messages", [])
                 else:
-                    message = f"Retrieved {len(messages)} messages from {channel} via MCP"
+                    messages = result.get("messages", [])
 
+                state.data["messages"] = messages
+                message = f"Retrieved {len(messages)} messages from {channel} via MCP"
                 state.messages.append(message)
 
             elif action == SlackMCPActionType.LIST_TOOLS:
@@ -189,6 +184,68 @@ async def slack_mcp_node_handler(input_data: SlackMCPInput) -> SlackMCPOutput:
                         "text": input_data.text,
                         "limit": input_data.limit,
                         "channels": channels
+                    }
+                )
+                
+            finally:
+                await service.disconnect()
+                
+        # For get_messages action, directly call the MCP service 
+        elif input_data.action == SlackMCPActionType.GET_MESSAGES:
+            from app.services.mcp_services.slack_mcp_client import SlackMCPService
+            
+            if not input_data.channel:
+                return SlackMCPOutput(
+                    output_text="",
+                    success=False,
+                    error_message="channel parameter is required for get_messages action"
+                )
+            
+            service = SlackMCPService()
+            try:
+                await service.ensure_connected()
+                result = await service.get_messages(input_data.channel, input_data.limit)
+                
+                # Parse the detailed response from MCP
+                messages = []
+                output_text = "Retrieved messages successfully"
+                
+                content = result.get("content", [])
+                if content and len(content) > 0:
+                    message = content[0].get("text", "")
+                    output_text = message
+                    
+                    # Parse message information from the detailed text
+                    if "Messages from" in message:
+                        lines = message.split('\n')
+                        for line in lines[2:]:  # Skip the first two lines (header and empty line)
+                            if line.strip() and line.startswith('['):
+                                # Parse line like "[1759074927.512519] UV2GBFUQK: っっっっf"
+                                try:
+                                    parts = line.split('] ')
+                                    if len(parts) >= 2:
+                                        ts = parts[0][1:]  # Remove the opening bracket
+                                        user_and_text = parts[1]
+                                        if ': ' in user_and_text:
+                                            user, text = user_and_text.split(': ', 1)
+                                            messages.append({
+                                                "ts": ts,
+                                                "user": user,
+                                                "text": text,
+                                                "type": "message"
+                                            })
+                                except Exception:
+                                    continue
+                
+                return SlackMCPOutput(
+                    output_text=output_text,
+                    messages=messages,
+                    data={
+                        "action": input_data.action,
+                        "channel": input_data.channel,
+                        "text": input_data.text,
+                        "limit": input_data.limit,
+                        "messages": messages
                     }
                 )
                 

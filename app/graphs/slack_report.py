@@ -51,10 +51,62 @@ class SlackReportGraph:
 
     async def _collect_messages_step(self, state: NodeState) -> NodeState:
         """Collect messages from Slack channel"""
-        # Configure Slack node for message collection
-        state.data["action"] = SlackMCPActionType.GET_MESSAGES
-
-        return await self.slack_node.execute(state)
+        try:
+            from app.services.mcp_services.slack_mcp_client import SlackMCPService
+            
+            channel_id = state.data.get("channel_id")
+            limit = state.data.get("limit", 100)
+            
+            if not channel_id:
+                state.data["error"] = "channel_id is required"
+                return state
+            
+            # Use MCP service directly for better control
+            service = SlackMCPService()
+            try:
+                await service.ensure_connected()
+                result = await service.get_messages(channel_id, limit)
+                
+                # Parse the detailed response from MCP
+                messages = []
+                content = result.get("content", [])
+                
+                if content and len(content) > 0:
+                    message_text = content[0].get("text", "")
+                    
+                    # Parse message information from the detailed text
+                    if "Messages from" in message_text:
+                        lines = message_text.split('\n')
+                        for line in lines[2:]:  # Skip the first two lines (header and empty line)
+                            if line.strip() and line.startswith('['):
+                                # Parse line like "[1759074927.512519] UV2GBFUQK: っっっっf"
+                                try:
+                                    parts = line.split('] ')
+                                    if len(parts) >= 2:
+                                        ts = parts[0][1:]  # Remove the opening bracket
+                                        user_and_text = parts[1]
+                                        if ': ' in user_and_text:
+                                            user, text = user_and_text.split(': ', 1)
+                                            messages.append({
+                                                "ts": ts,
+                                                "user": user,
+                                                "text": text,
+                                                "type": "message"
+                                            })
+                                except Exception:
+                                    continue
+                
+                state.data["messages"] = messages
+                state.messages.append(f"Retrieved {len(messages)} messages via MCP")
+                
+            finally:
+                await service.disconnect()
+                
+            return state
+            
+        except Exception as e:
+            state.data["error"] = f"Failed to collect messages: {str(e)}"
+            return state
 
     async def _generate_report_step(self, state: NodeState) -> NodeState:
         """Generate report from collected messages"""
@@ -100,7 +152,7 @@ class SlackReportGraph:
         for msg in messages:
             if msg.get("text", "").strip():
                 user = msg.get("user", "Unknown")
-                timestamp = msg.get("timestamp", "")
+                timestamp = msg.get("ts", "")  # Changed from timestamp to ts
                 text = msg.get("text", "")
 
                 # Format timestamp if available

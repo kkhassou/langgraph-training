@@ -41,7 +41,7 @@ class SlackMCPClient(BaseMCPClient):
             return False
 
         try:
-            # Path to our Slack MCP server
+            # Path to our Slack MCP server (use the app version which has get_channels)
             server_script = os.path.join(
                 os.path.dirname(__file__),
                 "..", "..", "mcp_servers", "slack", "server.py"
@@ -207,7 +207,7 @@ class SlackMCPService:
             "text": text
         })
 
-    async def get_messages(self, channel: str, limit: int = 10) -> Dict[str, Any]:
+    async def get_messages(self, channel: str, limit: int = 10, days_back: int = 7) -> Dict[str, Any]:
         """Get messages from Slack channel via MCP"""
         await self.ensure_connected()
         return await self.client.call_tool("get_messages", {
