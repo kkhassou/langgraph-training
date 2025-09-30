@@ -4,9 +4,75 @@ from typing import Dict, Any
 from app.nodes.llm_gemini import GeminiInput, gemini_node_handler
 from app.nodes.ppt_ingest import ppt_ingest_handler
 from app.nodes.mcp_integrations.slack_mcp_node import SlackMCPInput, slack_mcp_node_handler
+from app.nodes.rag.rag_node import RAGInput, rag_node_handler
+from app.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
 
 
 router = APIRouter(prefix="/nodes", tags=["nodes"])
+
+
+@router.get("/")
+async def list_nodes():
+    """List all available nodes and their capabilities"""
+    return {
+        "nodes": [
+            {
+                "name": "gemini",
+                "description": "Generate responses using Google Gemini LLM",
+                "endpoint": "/nodes/gemini",
+                "method": "POST",
+                "input_schema": {
+                    "prompt": "string",
+                    "temperature": "float (default: 0.7)",
+                    "max_tokens": "int (default: 1000)"
+                }
+            },
+            {
+                "name": "ppt-ingest",
+                "description": "Extract text from PowerPoint presentations",
+                "endpoint": "/nodes/ppt-ingest",
+                "method": "POST",
+                "input_schema": {
+                    "file": "multipart/form-data (PowerPoint file)"
+                }
+            },
+            {
+                "name": "slack-mcp",
+                "description": "Interact with Slack via MCP integration",
+                "endpoint": "/nodes/slack-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (get_channels, send_message)",
+                    "channel": "string (optional)",
+                    "message": "string (optional)"
+                }
+            },
+            {
+                "name": "rag",
+                "description": "Retrieve relevant documents and generate augmented response",
+                "endpoint": "/nodes/rag",
+                "method": "POST",
+                "input_schema": {
+                    "query": "string",
+                    "collection_name": "string (default: default_collection)",
+                    "top_k": "int (default: 5)",
+                    "include_metadata": "bool (default: true)"
+                }
+            },
+            {
+                "name": "document-ingest",
+                "description": "Process and store documents in vector database",
+                "endpoint": "/nodes/document-ingest",
+                "method": "POST",
+                "input_schema": {
+                    "content": "string",
+                    "collection_name": "string (default: default_collection)",
+                    "metadata": "object (default: {})",
+                    "chunk_size": "int (optional)"
+                }
+            }
+        ]
+    }
 
 
 @router.post("/gemini")
@@ -48,6 +114,26 @@ async def call_slack_mcp_node(input_data: SlackMCPInput):
     """Execute Slack node via MCP server"""
     try:
         result = await slack_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/rag")
+async def call_rag_node(input_data: RAGInput):
+    """Execute RAG (Retrieval-Augmented Generation) node"""
+    try:
+        result = await rag_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/document-ingest")
+async def call_document_ingest_node(input_data: DocumentIngestInput):
+    """Execute document ingestion node"""
+    try:
+        result = await document_ingest_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

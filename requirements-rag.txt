@@ -1,0 +1,36 @@
+# RAG System Dependencies
+# これらは既存のrequirements.txtに追加される予定のパッケージです
+# Phase 0では互換性確認のためのリストとして使用
+
+# Vector Stores
+supabase>=1.0.3           # Supabaseクライアント（メイン）
+chromadb>=0.4.18          # ローカル開発用ベクトルDB（バックアップ）
+faiss-cpu>=1.7.4          # CPU版FAISS（軽量）
+
+# Embeddings
+sentence-transformers>=2.2.2  # オープンソース埋め込みモデル
+# openai>=1.3.0           # OpenAI embeddings（既存のlangchainと競合可能性あり）
+
+# Document Processing
+pypdf>=3.17.1             # PDF処理
+beautifulsoup4>=4.12.2    # Web scraping
+markdownify>=0.11.6       # HTML to Markdown
+tiktoken>=0.5.2           # トークン計算
+
+# Text Processing
+nltk>=3.8.1               # 自然言語処理
+spacy>=3.7.2              # 高度なNLP（オプション）
+
+# Search & Ranking
+rank-bm25>=0.2.2          # BM25検索
+# cohere>=4.30             # リランキング（API使用）
+
+# Utilities
+tqdm>=4.66.1              # プログレスバー
+pandas>=2.1.4             # データ処理（分析用）
+
+# 互換性チェック要項:
+# 1. pydantic: 既存2.5.0+と互換 ✓
+# 2. fastapi: 既存0.104.1と互換 ✓
+# 3. langchain: 既存0.1.0+と互換性要確認
+# 4. aiofiles: 既存0.24.0と互換 ✓
