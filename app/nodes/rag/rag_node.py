@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
 from app.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
 from app.infrastructure.vector_stores.supabase import SupabaseVectorStore, Document
-from app.infrastructure.llm.factory import LLMFactory
+from app.infrastructure.vector_stores.local import LocalVectorStore
+from app.nodes.llm_gemini import GeminiNode
 from app.core.config import settings
 
 
@@ -20,6 +21,12 @@ class RAGOutput(NodeOutput):
     answer: str
     retrieved_documents: List[Dict[str, Any]]
     query_embedding: Optional[List[float]] = None
+    
+    # Ensure output_text is populated for compatibility with NodeOutput
+    def __init__(self, **data):
+        if 'output_text' not in data and 'answer' in data:
+            data['output_text'] = data['answer']
+        super().__init__(**data)
 
 
 class RAGNode(BaseNode):
@@ -43,12 +50,25 @@ class RAGNode(BaseNode):
             )
 
         if self.vector_store is None:
-            self.vector_store = SupabaseVectorStore(
-                dimension=settings.embedding_dimension
-            )
+            # Try Supabase first, fallback to local store
+            try:
+                if settings.supabase_url and settings.supabase_key:
+                    self.vector_store = SupabaseVectorStore(
+                        dimension=settings.embedding_dimension
+                    )
+                    print("Using Supabase vector store")
+                else:
+                    raise ValueError("Supabase credentials not configured")
+            except Exception as e:
+                print(f"Supabase initialization failed: {str(e)}")
+                print("Falling back to local vector store")
+                self.vector_store = LocalVectorStore(
+                    dimension=settings.embedding_dimension
+                )
+                print("Using local vector store")
 
         if self.llm_provider is None:
-            self.llm_provider = LLMFactory.create_provider("gemini")
+            self.llm_provider = GeminiNode()
 
     async def execute(self, state: NodeState) -> NodeState:
         """Execute RAG workflow"""
@@ -94,7 +114,10 @@ class RAGNode(BaseNode):
             augmented_prompt = self._create_augmented_prompt(query, context)
 
             # Step 5: Generate response using LLM
-            llm_response = await self.llm_provider.generate(augmented_prompt)
+            llm_state = NodeState()
+            llm_state.messages = [augmented_prompt]
+            llm_result = await self.llm_provider.execute(llm_state)
+            llm_response = llm_result.data.get("llm_response", "No response generated")
 
             # Update state with results
             state.data.update({
@@ -149,6 +172,7 @@ async def rag_node_handler(input_data: RAGInput) -> RAGOutput:
             return RAGOutput(
                 answer="",
                 retrieved_documents=[],
+                output_text="",
                 success=False,
                 error_message=result_state.data["error"]
             )
@@ -157,6 +181,7 @@ async def rag_node_handler(input_data: RAGInput) -> RAGOutput:
             answer=result_state.data.get("rag_answer", ""),
             retrieved_documents=result_state.data.get("retrieved_documents", []),
             query_embedding=result_state.data.get("query_embedding") if input_data.include_metadata else None,
+            output_text=result_state.data.get("rag_answer", ""),
             data=result_state.data
         )
 
@@ -164,6 +189,7 @@ async def rag_node_handler(input_data: RAGInput) -> RAGOutput:
         return RAGOutput(
             answer="",
             retrieved_documents=[],
+            output_text="",
             success=False,
             error_message=str(e)
         )

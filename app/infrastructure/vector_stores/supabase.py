@@ -20,31 +20,29 @@ class SupabaseVectorStore(BaseVectorStore):
         return create_client(settings.supabase_url, settings.supabase_key)
 
     async def create_collection(self, collection_name: str) -> bool:
-        """Create a new collection (table) with pgvector support"""
+        """Check if collection exists (table must be created manually in Supabase)"""
         try:
-            # Create table with pgvector extension
-            table_sql = f"""
-            CREATE TABLE IF NOT EXISTS {collection_name} (
-                id TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                metadata JSONB DEFAULT '{{}}',
-                embedding vector({self.dimension}),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            );
-
-            -- Create index for vector similarity search
-            CREATE INDEX IF NOT EXISTS {collection_name}_embedding_idx
-            ON {collection_name}
-            USING ivfflat (embedding vector_cosine_ops)
-            WITH (lists = 100);
-            """
-
-            # Execute via RPC or direct SQL execution
-            result = self.client.rpc('exec_sql', {'sql': table_sql}).execute()
+            # Test if table exists by attempting a simple query
+            result = self.client.table(collection_name).select("id").limit(1).execute()
+            print(f"Collection {collection_name} exists and is accessible")
             return True
-
         except Exception as e:
-            print(f"Error creating collection {collection_name}: {str(e)}")
+            print(f"Collection {collection_name} doesn't exist or is not accessible: {str(e)}")
+            print(f"Please create the table manually in Supabase SQL Editor:")
+            print(f"""
+CREATE TABLE IF NOT EXISTS {collection_name} (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    metadata JSONB DEFAULT '{{}}',
+    embedding vector({self.dimension}),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS {collection_name}_embedding_idx
+ON {collection_name}
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+            """)
             return False
 
     async def delete_collection(self, collection_name: str) -> bool:
@@ -170,16 +168,46 @@ class SupabaseVectorStore(BaseVectorStore):
 
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors"""
-        import math
+        try:
+            import math
+            
+            # Handle Supabase pgvector format conversion
+            def normalize_vector(vec):
+                if isinstance(vec, str):
+                    # Parse string representation of vector
+                    import json
+                    return json.loads(vec)
+                elif hasattr(vec, '__iter__') and not isinstance(vec, str):
+                    # Convert to float list
+                    return [float(x) for x in vec]
+                else:
+                    return vec
+            
+            v1 = normalize_vector(vec1)
+            v2 = normalize_vector(vec2)
+            
+            if len(v1) != len(v2):
+                print(f"Vector dimension mismatch: {len(v1)} vs {len(v2)}")
+                return 0.0
+            
+            # Calculate dot product and magnitudes with explicit float conversion
+            dot_product = sum(float(a) * float(b) for a, b in zip(v1, v2))
+            magnitude1 = math.sqrt(sum(float(a) * float(a) for a in v1))
+            magnitude2 = math.sqrt(sum(float(b) * float(b) for b in v2))
 
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
-        magnitude1 = math.sqrt(sum(a * a for a in vec1))
-        magnitude2 = math.sqrt(sum(a * a for a in vec2))
+            if magnitude1 == 0 or magnitude2 == 0:
+                return 0.0
 
-        if magnitude1 == 0 or magnitude2 == 0:
+            similarity = dot_product / (magnitude1 * magnitude2)
+            return float(similarity)
+            
+        except Exception as e:
+            print(f"Cosine similarity error: {str(e)}")
+            print(f"vec1 type: {type(vec1)}, sample: {str(vec1)[:100] if hasattr(vec1, '__iter__') else vec1}")
+            print(f"vec2 type: {type(vec2)}, sample: {str(vec2)[:100] if hasattr(vec2, '__iter__') else vec2}")
+            import traceback
+            traceback.print_exc()
             return 0.0
-
-        return dot_product / (magnitude1 * magnitude2)
 
     def get_info(self) -> Dict[str, Any]:
         """Get vector store information"""

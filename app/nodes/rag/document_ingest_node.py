@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
 from app.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
 from app.infrastructure.vector_stores.supabase import SupabaseVectorStore, Document
+from app.infrastructure.vector_stores.local import LocalVectorStore
 from app.core.config import settings
 
 
@@ -20,6 +21,18 @@ class DocumentIngestOutput(NodeOutput):
     document_id: str = ""
     chunks_created: int = 0
     collection_name: str = ""
+    
+    # Ensure output_text is populated for compatibility with NodeOutput
+    def __init__(self, **data):
+        if 'output_text' not in data:
+            # Create a meaningful output message based on the ingestion result
+            if data.get('success', True) and data.get('chunks_created', 0) > 0:
+                data['output_text'] = f"文書の取り込みが完了しました。{data.get('chunks_created', 0)}個のチャンクが作成され、コレクション '{data.get('collection_name', '')}' に保存されました。"
+            elif not data.get('success', True):
+                data['output_text'] = f"文書の取り込みに失敗しました: {data.get('error_message', '不明なエラー')}"
+            else:
+                data['output_text'] = "文書の取り込み処理が完了しました。"
+        super().__init__(**data)
 
 
 class DocumentIngestNode(BaseNode):
@@ -42,9 +55,22 @@ class DocumentIngestNode(BaseNode):
             )
 
         if self.vector_store is None:
-            self.vector_store = SupabaseVectorStore(
-                dimension=settings.embedding_dimension
-            )
+            # Try Supabase first, fallback to local store
+            try:
+                if settings.supabase_url and settings.supabase_key:
+                    self.vector_store = SupabaseVectorStore(
+                        dimension=settings.embedding_dimension
+                    )
+                    print("Using Supabase vector store")
+                else:
+                    raise ValueError("Supabase credentials not configured")
+            except Exception as e:
+                print(f"Supabase initialization failed: {str(e)}")
+                print("Falling back to local vector store")
+                self.vector_store = LocalVectorStore(
+                    dimension=settings.embedding_dimension
+                )
+                print("Using local vector store")
 
     async def execute(self, state: NodeState) -> NodeState:
         """Execute document ingestion"""
@@ -170,6 +196,7 @@ async def document_ingest_handler(input_data: DocumentIngestInput) -> DocumentIn
 
         if "error" in result_state.data:
             return DocumentIngestOutput(
+                output_text=f"文書の取り込みに失敗しました: {result_state.data['error']}",
                 success=False,
                 error_message=result_state.data["error"]
             )
@@ -178,11 +205,13 @@ async def document_ingest_handler(input_data: DocumentIngestInput) -> DocumentIn
             document_id=result_state.data.get("document_id", ""),
             chunks_created=result_state.data.get("chunks_created", 0),
             collection_name=result_state.data.get("collection_name", ""),
+            output_text=f"文書の取り込みが完了しました。{result_state.data.get('chunks_created', 0)}個のチャンクが作成され、コレクション '{result_state.data.get('collection_name', '')}' に保存されました。",
             data=result_state.data
         )
 
     except Exception as e:
         return DocumentIngestOutput(
+            output_text=f"文書の取り込みに失敗しました: {str(e)}",
             success=False,
             error_message=str(e)
         )
