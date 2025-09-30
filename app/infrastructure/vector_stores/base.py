@@ -70,6 +70,15 @@ class BaseVectorStore(ABC):
         """Get collection information"""
         pass
 
+    @abstractmethod
+    async def get_documents(
+        self,
+        collection_name: str,
+        limit: Optional[int] = None
+    ) -> List[Document]:
+        """Get documents from collection"""
+        pass
+
     def get_info(self) -> Dict[str, Any]:
         """Get vector store information"""
         return {

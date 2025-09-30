@@ -33,21 +33,32 @@ class HybridSearchProvider(BaseSearchProvider):
     async def search(self, query: SearchQuery, documents: List[Document] = None) -> List[SearchResult]:
         """Perform hybrid search combining semantic and BM25 results"""
         try:
+            print(f"[Hybrid] Starting hybrid search (semantic_weight={self.semantic_weight}, bm25_weight={self.bm25_weight})")
+            
             # Perform both types of search
+            print(f"[Hybrid] Performing semantic search...")
             semantic_results = await self.semantic_provider.search(query, documents)
+            print(f"[Hybrid] Semantic search returned {len(semantic_results)} results")
+            
+            print(f"[Hybrid] Performing BM25 search...")
             bm25_results = await self.bm25_provider.search(query, documents)
+            print(f"[Hybrid] BM25 search returned {len(bm25_results)} results")
 
             # Combine and re-rank results
+            print(f"[Hybrid] Combining results...")
             combined_results = self._combine_results(
                 semantic_results,
                 bm25_results,
                 query.top_k
             )
-
+            
+            print(f"[Hybrid] Combined to {len(combined_results)} results")
             return combined_results
 
         except Exception as e:
-            print(f"Error in hybrid search: {str(e)}")
+            print(f"[Hybrid] Error in hybrid search: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _combine_results(self,

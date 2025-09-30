@@ -195,6 +195,31 @@ class LocalVectorStore(BaseVectorStore):
                 "storage": "local_file"
             }
 
+    async def get_documents(
+        self,
+        collection_name: str,
+        limit: Optional[int] = None
+    ) -> List[Document]:
+        """Get documents from collection"""
+        try:
+            doc_dicts = self._load_collection(collection_name)
+            
+            documents = []
+            for doc_dict in doc_dicts[:limit] if limit else doc_dicts:
+                document = Document(
+                    id=doc_dict['id'],
+                    content=doc_dict['content'],
+                    metadata=doc_dict.get('metadata', {}),
+                    embedding=doc_dict.get('embedding')
+                )
+                documents.append(document)
+            
+            return documents
+            
+        except Exception as e:
+            print(f"Error getting documents from {collection_name}: {str(e)}")
+            return []
+
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors"""
         try:

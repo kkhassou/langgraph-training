@@ -24,18 +24,24 @@ class SemanticSearchProvider(BaseSearchProvider):
     async def build_index(self, documents: List[Document]) -> bool:
         """Build semantic index (generate embeddings for documents)"""
         try:
+            print(f"[Semantic] Building index with {len(documents)} documents...")
             self._initialize_embedding_provider()
             self.documents = documents
 
             # Generate embeddings for documents that don't have them
+            docs_without_embeddings = 0
             for doc in documents:
                 if doc.embedding is None:
+                    docs_without_embeddings += 1
                     doc.embedding = await self.embedding_provider.embed_text(doc.content)
 
+            print(f"[Semantic] Generated embeddings for {docs_without_embeddings} documents, {len(documents) - docs_without_embeddings} already had embeddings")
             return True
 
         except Exception as e:
-            print(f"Error building semantic index: {str(e)}")
+            print(f"[Semantic] Error building semantic index: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
 
     async def search(self, query: SearchQuery, documents: List[Document] = None) -> List[SearchResult]:
@@ -46,16 +52,22 @@ class SemanticSearchProvider(BaseSearchProvider):
             # Use provided documents or fall back to indexed documents
             search_documents = documents if documents else self.documents
             if not search_documents:
+                print(f"[Semantic] No documents available for search")
                 return []
+
+            print(f"[Semantic] Searching {len(search_documents)} documents...")
 
             # Ensure documents have embeddings
             await self.build_index(search_documents)
 
             # Generate query embedding
+            print(f"[Semantic] Generating embedding for query: '{query.text}'...")
             query_embedding = await self.embedding_provider.embed_query(query.text)
+            print(f"[Semantic] Query embedding generated (dimension: {len(query_embedding)})")
 
             # Calculate similarities and create results
             results = []
+            similarities = []
             for i, doc in enumerate(search_documents):
                 # Apply filters if specified
                 if query.filters:
@@ -64,15 +76,23 @@ class SemanticSearchProvider(BaseSearchProvider):
 
                 if doc.embedding:
                     similarity = self._cosine_similarity(query_embedding, doc.embedding)
+                    similarities.append(similarity)
 
-                    if similarity >= settings.similarity_threshold:
-                        result = SearchResult(
-                            document=doc,
-                            score=similarity,
-                            search_type="semantic",
-                            rank=i
-                        )
-                        results.append(result)
+                    # Include all results for search endpoint
+                    # The threshold is more of a quality indicator
+                    result = SearchResult(
+                        document=doc,
+                        score=similarity,
+                        search_type="semantic",
+                        rank=i
+                    )
+                    results.append(result)
+
+            if similarities:
+                above_threshold = sum(1 for s in similarities if s >= settings.similarity_threshold)
+                print(f"[Semantic] Found {len(results)} total results (scores range: {min(similarities):.3f} to {max(similarities):.3f}, {above_threshold} above threshold {settings.similarity_threshold})")
+            else:
+                print(f"[Semantic] Found 0 results")
 
             # Sort by similarity (descending) and return top_k
             results.sort(key=lambda x: x.score, reverse=True)
@@ -81,10 +101,13 @@ class SemanticSearchProvider(BaseSearchProvider):
             for i, result in enumerate(results[:query.top_k]):
                 result.rank = i
 
+            print(f"[Semantic] Returning top {min(len(results), query.top_k)} results")
             return results[:query.top_k]
 
         except Exception as e:
-            print(f"Error in semantic search: {str(e)}")
+            print(f"[Semantic] Error in semantic search: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:

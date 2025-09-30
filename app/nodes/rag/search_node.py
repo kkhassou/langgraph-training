@@ -66,6 +66,19 @@ class SearchNode(BaseNode):
             filters = state.data.get("filters")
             semantic_weight = state.data.get("semantic_weight", 0.7)
             bm25_weight = state.data.get("bm25_weight", 0.3)
+            
+            # Clean up filters - remove empty objects
+            if filters:
+                cleaned_filters = {}
+                for key, value in filters.items():
+                    # Skip empty dicts and None values
+                    if value and value != {}:
+                        cleaned_filters[key] = value
+                filters = cleaned_filters if cleaned_filters else None
+                if filters:
+                    print(f"Using filters: {filters}")
+                else:
+                    print(f"Filters were empty, ignoring them")
 
             if not query_text:
                 state.data["error"] = "Query is required for search"
@@ -82,9 +95,30 @@ class SearchNode(BaseNode):
                 state.data["error"] = f"Collection not found: {collection_name}"
                 return state
 
-            # For this implementation, we'll use a simplified approach
-            # In a real implementation, you'd retrieve documents from the vector store
-            # Here we'll simulate by creating a dummy search
+            # Check if collection has documents
+            doc_count = collection_info.get("document_count", 0)
+            print(f"Collection '{collection_name}' has {doc_count} documents")
+            
+            if doc_count == 0:
+                state.data.update({
+                    "search_results": [],
+                    "search_type": search_type,
+                    "query": query_text,
+                    "collection_name": collection_name,
+                    "top_k": top_k,
+                    "total_results": 0,
+                    "message": "コレクションにドキュメントがありません"
+                })
+                return state
+
+            # Get documents from collection
+            print(f"Retrieving documents from collection '{collection_name}'...")
+            documents = await self.vector_store.get_documents(collection_name)
+            print(f"Retrieved {len(documents)} documents from vector store")
+            
+            if not documents:
+                state.data["error"] = f"コレクションからドキュメントを取得できませんでした（コレクション情報では{doc_count}件あるはずです）"
+                return state
 
             # Create search query
             search_query = SearchQuery(
@@ -100,15 +134,28 @@ class SearchNode(BaseNode):
             if search_type == "hybrid" and isinstance(search_provider, HybridSearchProvider):
                 search_provider.set_weights(semantic_weight, bm25_weight)
 
-            # Since we can't easily retrieve documents without additional infrastructure,
-            # we'll create a simplified search that returns metadata about the search
-            # In a real implementation, you would:
-            # 1. Retrieve documents from the collection
-            # 2. Perform the actual search
-            # 3. Return real results
+            # Build index from documents
+            print(f"Building index for {search_type} search with {len(documents)} documents...")
+            index_success = await search_provider.build_index(documents)
+            print(f"Index build result: {index_success}")
 
-            # For now, return search configuration and provider info
+            # Perform search
+            print(f"Performing {search_type} search for query: '{query_text}'...")
+            search_results_objs = await search_provider.search(search_query, documents)
+            print(f"Search returned {len(search_results_objs)} results")
+            
+            # Convert search results to dict format
             search_results = []
+            for result in search_results_objs:
+                search_results.append({
+                    "id": result.document.id,
+                    "content": result.document.content,
+                    "metadata": result.document.metadata,
+                    "score": result.score,
+                    "rank": result.rank,
+                    "search_type": result.search_type
+                })
+            
             provider_info = search_provider.get_info()
 
             # Update state with search results
@@ -152,6 +199,7 @@ async def search_node_handler(input_data: SearchInput) -> SearchOutput:
 
         if "error" in result_state.data:
             return SearchOutput(
+                output_text=f"検索エラー: {result_state.data['error']}",
                 results=[],
                 search_type=input_data.search_type,
                 query=input_data.query,
@@ -160,7 +208,13 @@ async def search_node_handler(input_data: SearchInput) -> SearchOutput:
                 error_message=result_state.data["error"]
             )
 
+        # 検索結果のサマリーを作成
+        total_results = result_state.data.get("total_results", 0)
+        search_type = result_state.data.get("search_type", "")
+        output_text = f"検索完了: '{input_data.query}' で {total_results} 件の結果が見つかりました (検索タイプ: {search_type})"
+
         return SearchOutput(
+            output_text=output_text,
             results=result_state.data.get("search_results", []),
             search_type=result_state.data.get("search_type", ""),
             query=result_state.data.get("query", ""),
@@ -170,6 +224,7 @@ async def search_node_handler(input_data: SearchInput) -> SearchOutput:
 
     except Exception as e:
         return SearchOutput(
+            output_text=f"検索実行中に予期しないエラーが発生しました: {str(e)}",
             results=[],
             search_type=input_data.search_type,
             query=input_data.query,

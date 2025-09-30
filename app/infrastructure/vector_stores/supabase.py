@@ -166,6 +166,47 @@ WITH (lists = 100);
                 "dimension": self.dimension
             }
 
+    async def get_documents(
+        self,
+        collection_name: str,
+        limit: Optional[int] = None
+    ) -> List[Document]:
+        """Get documents from collection"""
+        try:
+            print(f"[get_documents] Querying collection '{collection_name}'...")
+            query = self.client.table(collection_name).select(
+                "id, content, metadata, embedding"
+            )
+            
+            if limit:
+                query = query.limit(limit)
+            else:
+                query = query.limit(1000)  # Default limit to prevent memory issues
+            
+            result = query.execute()
+            print(f"[get_documents] Query executed, got {len(result.data)} rows")
+            
+            documents = []
+            for i, row in enumerate(result.data):
+                document = Document(
+                    id=row['id'],
+                    content=row['content'],
+                    metadata=row.get('metadata', {}),
+                    embedding=row.get('embedding')
+                )
+                documents.append(document)
+                if i == 0:
+                    print(f"[get_documents] First document - ID: {row['id']}, has_embedding: {row.get('embedding') is not None}")
+            
+            print(f"[get_documents] Returning {len(documents)} documents")
+            return documents
+            
+        except Exception as e:
+            print(f"[get_documents] Error getting documents from {collection_name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors"""
         try:

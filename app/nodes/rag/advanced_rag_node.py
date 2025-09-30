@@ -2,8 +2,12 @@ from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 from app.nodes.base_node import BaseNode, NodeState, NodeInput, NodeOutput
 from app.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
-from app.infrastructure.vector_stores.supabase import SupabaseVectorStore, Document
+from app.infrastructure.vector_stores.supabase import SupabaseVectorStore
+from app.infrastructure.vector_stores.local import LocalVectorStore
+from app.infrastructure.vector_stores.base import Document
 from app.infrastructure.search.hybrid_search import HybridSearchProvider
+from app.infrastructure.search.semantic_search import SemanticSearchProvider
+from app.infrastructure.search.bm25_search import BM25SearchProvider
 from app.infrastructure.search.base import SearchQuery
 from app.infrastructure.context.context_manager import ContextManager
 from app.nodes.llm_gemini import GeminiNode
@@ -41,7 +45,7 @@ class AdvancedRAGNode(BaseNode):
         )
         self.embedding_provider = None
         self.vector_store = None
-        self.search_provider = None
+        self.search_providers = {}
         self.llm_node = None
         self.context_manager = ContextManager()
 
@@ -54,12 +58,29 @@ class AdvancedRAGNode(BaseNode):
             )
 
         if self.vector_store is None:
-            self.vector_store = SupabaseVectorStore(
-                dimension=settings.embedding_dimension
-            )
+            # Try Supabase first, fallback to local store
+            try:
+                if settings.supabase_url and settings.supabase_key:
+                    self.vector_store = SupabaseVectorStore(
+                        dimension=settings.embedding_dimension
+                    )
+                    print("[Advanced RAG] Using Supabase vector store")
+                else:
+                    raise ValueError("Supabase credentials not configured")
+            except Exception as e:
+                print(f"[Advanced RAG] Supabase initialization failed: {str(e)}")
+                print("[Advanced RAG] Falling back to local vector store")
+                self.vector_store = LocalVectorStore(
+                    dimension=settings.embedding_dimension
+                )
+                print("[Advanced RAG] Using local vector store")
 
-        if self.search_provider is None:
-            self.search_provider = HybridSearchProvider()
+        if not self.search_providers:
+            self.search_providers = {
+                "semantic": SemanticSearchProvider(),
+                "bm25": BM25SearchProvider(),
+                "hybrid": HybridSearchProvider()
+            }
 
         if self.llm_node is None:
             self.llm_node = GeminiNode()
@@ -87,20 +108,36 @@ class AdvancedRAGNode(BaseNode):
             # Step 1: Query enhancement (expand query with conversation context)
             enhanced_query = await self._enhance_query(query, include_conversation)
 
-            # Step 2: Retrieve documents using hybrid search
+            # Step 2: Retrieve documents using selected search type
             search_query = SearchQuery(
                 text=enhanced_query,
                 top_k=top_k
             )
 
-            # Configure search weights
-            self.search_provider.set_weights(semantic_weight, bm25_weight)
+            # Get search provider based on search type
+            if search_type not in self.search_providers:
+                state.data["error"] = f"Invalid search type: {search_type}. Must be one of: {list(self.search_providers.keys())}"
+                return state
+            
+            search_provider = self.search_providers[search_type]
 
-            # For demonstration, create sample documents (in real implementation, retrieve from vector store)
-            sample_documents = await self._get_sample_documents(collection_name, query)
+            # Configure search weights for hybrid search
+            if search_type == "hybrid" and isinstance(search_provider, HybridSearchProvider):
+                search_provider.set_weights(semantic_weight, bm25_weight)
+
+            # Get documents from vector store
+            documents = await self.vector_store.get_documents(collection_name)
+            
+            if not documents:
+                # Fallback to sample documents if collection is empty
+                print(f"[Advanced RAG] No documents in collection '{collection_name}', using sample documents")
+                documents = await self._get_sample_documents(collection_name, query)
+
+            # Build search index
+            await search_provider.build_index(documents)
 
             # Perform search
-            search_results = await self.search_provider.search(search_query, sample_documents)
+            search_results = await search_provider.search(search_query, documents)
             retrieved_documents = [result.document for result in search_results]
 
             # Step 3: Context optimization
@@ -302,6 +339,7 @@ async def advanced_rag_handler(input_data: AdvancedRAGInput) -> AdvancedRAGOutpu
 
         if "error" in result_state.data:
             return AdvancedRAGOutput(
+                output_text=f"Advanced RAGエラー: {result_state.data['error']}",
                 answer="",
                 retrieved_documents=[],
                 context_stats={},
@@ -310,8 +348,10 @@ async def advanced_rag_handler(input_data: AdvancedRAGInput) -> AdvancedRAGOutpu
                 error_message=result_state.data["error"]
             )
 
+        answer = result_state.data.get("rag_answer", "")
         return AdvancedRAGOutput(
-            answer=result_state.data.get("rag_answer", ""),
+            output_text=answer,  # output_textにも同じ回答を設定
+            answer=answer,
             retrieved_documents=result_state.data.get("retrieved_documents", []),
             context_stats=result_state.data.get("context_stats", {}),
             search_metadata=result_state.data.get("search_metadata", {}),
@@ -320,6 +360,7 @@ async def advanced_rag_handler(input_data: AdvancedRAGInput) -> AdvancedRAGOutpu
 
     except Exception as e:
         return AdvancedRAGOutput(
+            output_text=f"Advanced RAG実行中に予期しないエラーが発生しました: {str(e)}",
             answer="",
             retrieved_documents=[],
             context_stats={},
