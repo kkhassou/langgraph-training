@@ -79,11 +79,11 @@ class ReflectionGraph:
 
         if iteration == 0:
             prompt = f"""
-Please complete the following task with high quality:
+以下のタスクを高品質で完了してください：
 
 {task}
 
-Provide a comprehensive and well-structured response.
+包括的で構造化された回答を日本語で提供してください。
             """.strip()
         else:
             # Use feedback for improvement
@@ -91,15 +91,15 @@ Provide a comprehensive and well-structured response.
             feedback = state.data.get("feedback", "")
 
             prompt = f"""
-Original task: {task}
+元のタスク：{task}
 
-Previous attempt:
+前回の回答：
 {previous_output}
 
-Feedback for improvement:
+改善のためのフィードバック：
 {feedback}
 
-Please provide an improved version that addresses the feedback while maintaining the original task requirements.
+フィードバックに対応しながら、元のタスク要件を維持した改善版を日本語で提供してください。
             """.strip()
 
         state.messages = [prompt]
@@ -122,20 +122,20 @@ Please provide an improved version that addresses the feedback while maintaining
         task = state.data.get("task", "")
 
         prompt = f"""
-Please critically analyze the following response to the given task:
+以下のタスクに対する回答を批判的に分析してください：
 
-Task: {task}
+タスク：{task}
 
-Response to evaluate:
+評価する回答：
 {current_output}
 
-Provide detailed feedback on:
-1. Completeness - Does it fully address the task?
-2. Quality - Is it well-structured and clear?
-3. Accuracy - Is the information correct?
-4. Areas for improvement - What specific improvements could be made?
+以下の点について詳細なフィードバックを日本語で提供してください：
+1. 完全性 - タスクに完全に対応しているか？
+2. 品質 - 構造化され、明確か？
+3. 正確性 - 情報は正確か？
+4. 改善点 - どのような具体的な改善ができるか？
 
-Rate the overall quality from 1-10 and provide specific suggestions for improvement.
+全体的な品質を1-10で評価し、具体的な改善提案を提供してください。
         """.strip()
 
         state.messages = [prompt]
