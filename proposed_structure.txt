@@ -1,0 +1,269 @@
+LangGraph Training - 提案される新しいフォルダ構成
+=====================================================
+
+langgraph-training/
+│
+├── README.md                           # プロジェクト概要
+├── .env.example                        # 環境変数のサンプル
+├── .gitignore
+├── requirements.txt                    # 本番環境の依存関係
+├── requirements-dev.txt                # 開発環境の依存関係
+├── pyproject.toml                      # プロジェクト設定（Poetry/setuptools）
+│
+├── docker/                             # Docker関連ファイル
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── docker-compose.dev.yml
+│
+├── scripts/                            # 運用スクリプト
+│   ├── setup.sh                        # 初期セットアップ
+│   ├── run_local.py
+│   ├── generate_diagram.py
+│   └── migrate_db.py
+│
+├── docs/                               # ドキュメント
+│   ├── README.md                       # ドキュメント目次
+│   ├── architecture/                   # アーキテクチャ設計
+│   │   ├── overview.md
+│   │   ├── diagrams/
+│   │   └── mcp_integration.md
+│   ├── guides/                         # ガイド・チュートリアル
+│   │   ├── workshop_guide.md
+│   │   ├── quick_reference.md
+│   │   └── file_structure_guide.md
+│   └── features/                       # 機能別ドキュメント
+│       ├── rag/
+│       │   ├── README.md
+│       │   ├── implementation.md
+│       │   ├── known-issues.md
+│       │   └── phase-guides/
+│       └── slack/
+│           └── mcp_server_design.md
+│
+├── src/                                # メインアプリケーションコード
+│   ├── __init__.py
+│   │
+│   ├── api/                            # APIエンドポイント
+│   │   ├── __init__.py
+│   │   ├── main.py                     # FastAPI アプリケーション
+│   │   ├── dependencies.py             # 依存性注入
+│   │   └── v1/                         # API バージョン管理
+│   │       ├── __init__.py
+│   │       ├── graphs.py               # グラフ実行エンドポイント
+│   │       └── nodes.py                # ノード実行エンドポイント
+│   │
+│   ├── core/                           # コア機能・設定
+│   │   ├── __init__.py
+│   │   ├── config.py                   # アプリケーション設定
+│   │   ├── constants.py                # 定数定義
+│   │   ├── exceptions.py               # カスタム例外
+│   │   └── logging.py                  # ログ設定
+│   │
+│   ├── domain/                         # ドメインモデル・ビジネスロジック
+│   │   ├── __init__.py
+│   │   ├── models/                     # データモデル
+│   │   │   ├── __init__.py
+│   │   │   ├── graph.py
+│   │   │   ├── node.py
+│   │   │   └── document.py
+│   │   └── schemas/                    # Pydanticスキーマ
+│   │       ├── __init__.py
+│   │       ├── api.py
+│   │       └── internal.py
+│   │
+│   ├── graphs/                         # LangGraphワークフロー定義
+│   │   ├── __init__.py
+│   │   ├── base.py                     # 基底グラフクラス
+│   │   ├── simple_chat.py
+│   │   ├── rag_workflow.py
+│   │   ├── ppt_summary.py
+│   │   └── slack_report.py
+│   │
+│   ├── nodes/                          # LangGraphノード実装
+│   │   ├── __init__.py
+│   │   ├── base.py                     # 基底ノードクラス
+│   │   ├── llm/                        # LLMノード
+│   │   │   ├── __init__.py
+│   │   │   ├── base_llm.py
+│   │   │   └── gemini.py
+│   │   ├── rag/                        # RAG関連ノード
+│   │   │   ├── __init__.py
+│   │   │   ├── ingest.py
+│   │   │   ├── search.py
+│   │   │   ├── retrieval.py
+│   │   │   └── advanced.py
+│   │   ├── document/                   # ドキュメント処理
+│   │   │   ├── __init__.py
+│   │   │   └── ppt_ingest.py
+│   │   └── integrations/               # 外部統合ノード
+│   │       ├── __init__.py
+│   │       └── mcp/
+│   │           ├── __init__.py
+│   │           ├── base.py
+│   │           └── slack.py
+│   │
+│   ├── patterns/                       # AI パターン実装
+│   │   ├── __init__.py
+│   │   ├── chain_of_thought.py
+│   │   ├── reflection.py
+│   │   └── react.py
+│   │
+│   ├── infrastructure/                 # インフラストラクチャ層
+│   │   ├── __init__.py
+│   │   │
+│   │   ├── vector_stores/              # ベクトルストア
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── local.py
+│   │   │   ├── supabase.py
+│   │   │   └── factory.py
+│   │   │
+│   │   ├── embeddings/                 # 埋め込みプロバイダー
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── gemini.py
+│   │   │   └── factory.py
+│   │   │
+│   │   ├── search/                     # 検索エンジン
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── semantic.py
+│   │   │   ├── bm25.py
+│   │   │   └── hybrid.py
+│   │   │
+│   │   └── context/                    # コンテキスト管理
+│   │       ├── __init__.py
+│   │       └── manager.py
+│   │
+│   ├── services/                       # アプリケーションサービス
+│   │   ├── __init__.py
+│   │   ├── graph_executor.py           # グラフ実行サービス
+│   │   ├── document_processor.py       # ドキュメント処理サービス
+│   │   └── mcp/                        # MCP クライアントサービス
+│   │       ├── __init__.py
+│   │       ├── base.py
+│   │       ├── slack.py
+│   │       └── factory.py
+│   │
+│   └── utils/                          # ユーティリティ
+│       ├── __init__.py
+│       ├── file_utils.py
+│       ├── text_processing.py
+│       └── validators.py
+│
+├── mcp_servers/                        # MCP サーバー実装（独立実行可能）
+│   ├── __init__.py
+│   ├── shared/                         # 共通ユーティリティ
+│   │   ├── __init__.py
+│   │   └── utils.py
+│   └── slack/                          # Slack MCP サーバー
+│       ├── __init__.py
+│       ├── server.py
+│       ├── config.json
+│       └── requirements.txt
+│
+├── tests/                              # テストコード
+│   ├── __init__.py
+│   ├── conftest.py                     # pytest設定
+│   │
+│   ├── unit/                           # 単体テスト
+│   │   ├── __init__.py
+│   │   ├── test_nodes/
+│   │   ├── test_services/
+│   │   └── test_infrastructure/
+│   │
+│   ├── integration/                    # 統合テスト
+│   │   ├── __init__.py
+│   │   ├── test_graphs/
+│   │   └── test_api/
+│   │
+│   └── fixtures/                       # テストデータ
+│       ├── documents/
+│       └── mock_responses/
+│
+├── data/                               # データディレクトリ（gitignore）
+│   ├── uploads/                        # アップロードファイル
+│   ├── vector_db/                      # ローカルベクトルDB
+│   └── cache/                          # キャッシュデータ
+│
+└── migrations/                         # DBマイグレーション
+    ├── supabase/
+    │   └── setup.sql
+    └── alembic/                        # SQLAlchemy migrations（必要に応じて）
+
+
+主な改善点:
+===========
+
+1. **app/ → src/ にリネーム**
+   - Python標準の慣習に準拠
+   - パッケージ構造の明確化
+
+2. **API層の整理**
+   - バージョニング対応（v1/）
+   - main.pyの分離
+   - 依存性注入の明示化
+
+3. **ドメイン層の追加**
+   - models/: ビジネスロジックとデータモデル
+   - schemas/: API入出力スキーマ
+   - ビジネスロジックとインフラの分離
+
+4. **ノード構造の改善**
+   - 機能別にサブディレクトリ化
+   - llm/, rag/, document/, integrations/
+   - 責任範囲の明確化
+
+5. **テスト構造の改善**
+   - unit/とintegration/の分離
+   - fixtures/でテストデータ管理
+   - conftest.pyで共通設定
+
+6. **ドキュメント構造の改善**
+   - architecture/: 設計ドキュメント
+   - guides/: チュートリアル
+   - features/: 機能別ドキュメント
+
+7. **設定・依存関係の整理**
+   - pyproject.tomlでプロジェクト設定統一
+   - requirements-dev.txtで開発依存関係分離
+   - docker/ディレクトリでDocker関連整理
+
+8. **データディレクトリの追加**
+   - uploads/, vector_db/, cache/の明示化
+   - gitignoreで管理
+
+9. **Factory パターンの導入**
+   - embeddings/factory.py
+   - vector_stores/factory.py
+   - services/mcp/factory.py
+   - 依存関係の切り替え容易化
+
+10. **Core層の拡充**
+    - exceptions.py: カスタム例外
+    - logging.py: ログ設定
+    - constants.py: 定数管理
+
+
+移行の優先順位:
+==============
+
+Phase 1（基盤整備）:
+- src/core/ の整備
+- src/domain/ の作成
+- テスト構造の準備
+
+Phase 2（コア機能移行）:
+- nodes/ の再構成
+- graphs/ の移行
+- infrastructure/ の整理
+
+Phase 3（API・サービス層）:
+- api/ の再構成
+- services/ の整理
+- Factory パターン導入
+
+Phase 4（仕上げ）:
+- ドキュメント整理
+- Docker構成更新
+- CI/CD対応

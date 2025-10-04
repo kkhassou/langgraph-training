@@ -12,7 +12,8 @@ services:
     env_file:
       - .env
     volumes:
-      - ./app:/app/app
+      - ./src:/app/src
+      - ./mcp_servers:/app/mcp_servers
       - ./docs:/app/docs
       - ./scripts:/app/scripts
       - ./uploads:/app/uploads
