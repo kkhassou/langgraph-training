@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import os
 
 from app.core.config import settings
@@ -177,12 +177,12 @@ async def get_config():
 # Exception handlers
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
-    return HTTPException(status_code=404, detail="Endpoint not found")
+    return JSONResponse(status_code=404, content={"detail": "Endpoint not found"})
 
 
 @app.exception_handler(500)
 async def internal_error_handler(request, exc):
-    return HTTPException(status_code=500, detail="Internal server error")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 if __name__ == "__main__":

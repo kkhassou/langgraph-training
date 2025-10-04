@@ -4,7 +4,9 @@ import os
 
 from app.graphs.simple_chat import SimpleChatGraph, SimpleChatInput
 from app.graphs.ppt_summary import PPTSummaryGraph, PPTSummaryInput
-from app.graphs.slack_report import SlackReportGraph, SlackReportInput
+# Temporarily disabled due to MCP dependency issue
+# from app.graphs.slack_report import SlackReportGraph, SlackReportInput
+from app.graphs.rag_workflow import RAGWorkflow, RAGWorkflowInput
 from app.patterns.reflection import ReflectionGraph, ReflectionInput
 from app.patterns.chain_of_thought import ChainOfThoughtGraph, ChainOfThoughtInput
 
@@ -13,7 +15,8 @@ router = APIRouter(prefix="/graphs", tags=["graphs"])
 # Initialize graph instances
 simple_chat_graph = SimpleChatGraph()
 ppt_summary_graph = PPTSummaryGraph()
-slack_report_graph = SlackReportGraph()
+# slack_report_graph = SlackReportGraph()  # Temporarily disabled
+rag_workflow = RAGWorkflow()
 reflection_graph = ReflectionGraph()
 chain_of_thought_graph = ChainOfThoughtGraph()
 
@@ -54,14 +57,14 @@ async def run_ppt_summary(file: UploadFile = File(...), summary_style: str = "bu
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/slack-report")
-async def run_slack_report(input_data: SlackReportInput):
-    """Run Slack report generation workflow"""
-    try:
-        result = await slack_report_graph.run(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.post("/slack-report")
+# async def run_slack_report(input_data: SlackReportInput):
+#     """Run Slack report generation workflow"""
+#     try:
+#         result = await slack_report_graph.run(input_data)
+#         return result
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/reflection")
@@ -84,6 +87,16 @@ async def run_chain_of_thought(input_data: ChainOfThoughtInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/rag-workflow")
+async def run_rag_workflow(input_data: RAGWorkflowInput):
+    """Run RAG workflow with multiple strategies"""
+    try:
+        result = await rag_workflow.run(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/diagrams/{graph_name}")
 async def get_graph_diagram(graph_name: str):
     """Get Mermaid diagram for a specific graph"""
@@ -91,7 +104,8 @@ async def get_graph_diagram(graph_name: str):
         diagrams = {
             "simple-chat": simple_chat_graph.get_mermaid_diagram(),
             "ppt-summary": ppt_summary_graph.get_mermaid_diagram(),
-            "slack-report": slack_report_graph.get_mermaid_diagram(),
+            # "slack-report": slack_report_graph.get_mermaid_diagram(),  # Temporarily disabled
+            "rag-workflow": rag_workflow.get_mermaid_diagram(),
             "reflection": reflection_graph.get_mermaid_diagram(),
             "chain-of-thought": chain_of_thought_graph.get_mermaid_diagram()
         }
@@ -125,10 +139,16 @@ async def list_graphs():
                 "description": "PowerPoint summarization workflow",
                 "method": "POST"
             },
+            # {
+            #     "name": "slack-report",
+            #     "endpoint": "/graphs/slack-report",
+            #     "description": "Slack message analysis and reporting workflow",
+            #     "method": "POST"
+            # },
             {
-                "name": "slack-report",
-                "endpoint": "/graphs/slack-report",
-                "description": "Slack message analysis and reporting workflow",
+                "name": "rag-workflow",
+                "endpoint": "/graphs/rag-workflow",
+                "description": "Advanced RAG workflow with multiple strategies",
                 "method": "POST"
             },
             {

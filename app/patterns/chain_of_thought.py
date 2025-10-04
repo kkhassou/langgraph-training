@@ -130,7 +130,7 @@ Think through this step carefully and provide your reasoning. Be specific and de
         if "llm_response" in result.data:
             # Store the completed step
             completed_step = {
-                "step": current_step + 1,
+                "step": str(current_step + 1),
                 "description": step_description,
                 "reasoning": result.data["llm_response"]
             }
