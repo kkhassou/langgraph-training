@@ -17,4 +17,5 @@ services:
       - ./docs:/app/docs
       - ./scripts:/app/scripts
       - ./uploads:/app/uploads
+      - ./secrets:/app/secrets
     restart: unless-stopped

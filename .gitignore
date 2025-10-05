@@ -86,3 +86,6 @@ uploads/
 # Temporary files
 *.tmp
 *.temp
+
+# Secrets
+secrets/

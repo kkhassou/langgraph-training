@@ -25,3 +25,8 @@ scikit-learn>=1.3.0
 
 # MCP
 mcp>=1.0.0
+
+# Gmail SDK
+google-api-python-client>=2.137.0
+google-auth>=2.35.0
+google-auth-oauthlib>=1.2.1

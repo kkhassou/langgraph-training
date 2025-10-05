@@ -46,3 +46,11 @@ class NodeOutput(BaseModel):
     data: Dict[str, Any] = {}
     success: bool = True
     error_message: Optional[str] = None
+
+
+class NodeResult(BaseModel):
+    """Standard result model for node executions used by integration nodes"""
+    success: bool = True
+    data: Dict[str, Any] = {}
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = {}
