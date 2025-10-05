@@ -4,6 +4,7 @@ from typing import Dict, Any
 from src.nodes.llm.gemini import GeminiInput, gemini_node_handler
 from src.nodes.document.ppt_ingest import ppt_ingest_handler
 from src.nodes.integrations.mcp.slack import SlackMCPInput, slack_mcp_node_handler
+from src.nodes.integrations.mcp.gmail import GmailMCPInput, gmail_mcp_node_handler
 from src.nodes.rag.rag_node import RAGInput, rag_node_handler
 from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
 from src.nodes.rag.search_node import SearchInput, search_node_handler
@@ -47,6 +48,21 @@ async def list_nodes():
                     "action": "string (get_channels, send_message)",
                     "channel": "string (optional)",
                     "message": "string (optional)"
+                }
+            },
+            {
+                "name": "gmail-mcp",
+                "description": "Interact with Gmail via MCP integration",
+                "endpoint": "/nodes/gmail-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (watch_inbox, get_messages, send_message)",
+                    "topic_name": "string (optional, required for watch_inbox)",
+                    "query": "string (optional, for get_messages)",
+                    "max_results": "int (optional, default: 10)",
+                    "to": "string (optional, required for send_message)",
+                    "subject": "string (optional, required for send_message)",
+                    "body": "string (optional, required for send_message)"
                 }
             },
             {
@@ -148,6 +164,16 @@ async def call_slack_mcp_node(input_data: SlackMCPInput):
     """Execute Slack node via MCP server"""
     try:
         result = await slack_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/gmail-mcp")
+async def call_gmail_mcp_node(input_data: GmailMCPInput):
+    """Execute Gmail node via MCP server"""
+    try:
+        result = await gmail_mcp_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
