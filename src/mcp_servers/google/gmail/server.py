@@ -67,8 +67,8 @@ async def init_gmail_client():
     try:
         creds = None
         # The file token.json stores the user's access and refresh tokens
-        token_path = os.getenv("GMAIL_TOKEN_PATH", "token.json")
-        credentials_path = os.getenv("GMAIL_CREDENTIALS_PATH", "credentials.json")
+        token_path = os.getenv("GOOGLE_TOKEN_PATH", os.getenv("GMAIL_TOKEN_PATH", "token.json"))
+        credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH", os.getenv("GMAIL_CREDENTIALS_PATH", "credentials.json"))
 
         if os.path.exists(token_path):
             creds = Credentials.from_authorized_user_file(token_path, SCOPES)

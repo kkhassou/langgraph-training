@@ -1,19 +1,20 @@
-# Gmail MCP 統合セットアップガイド
+# Google Services 統合セットアップガイド
 
-このガイドでは、Gmail MCP サーバーをセットアップして、自分宛のメールをトリガーにワークフローを起動する方法を説明します。
+このガイドでは、Google Services（Gmail + Calendar）MCP サーバーをセットアップして、統一された認証で両方のサービスを使用する方法を説明します。
 
 ## 目次
 
-1. [Gmail API の有効化](#1-gmail-api-の有効化)
+1. [Google APIs の有効化](#1-google-apis-の有効化)
 2. [OAuth 2.0 認証情報の作成](#2-oauth-20-認証情報の作成)
-3. [Google Cloud Pub/Sub のセットアップ](#3-google-cloud-pubsub-のセットアップ)
-4. [Gmail Push 通知の設定](#4-gmail-push通知の設定)
-5. [FastAPI エンドポイントの設定](#5-fastapiエンドポイントの設定)
-6. [ワークフローの実装例](#6-ワークフローの実装例)
+3. [統一トークンの生成](#3-統一トークンの生成)
+4. [Google Cloud Pub/Sub のセットアップ](#4-google-cloud-pubsub-のセットアップ)
+5. [Gmail Push 通知の設定](#5-gmail-push通知の設定)
+6. [FastAPI エンドポイントの設定](#6-fastapiエンドポイントの設定)
+7. [ワークフローの実装例](#7-ワークフローの実装例)
 
 ---
 
-## 1. Gmail API の有効化
+## 1. Google APIs の有効化
 
 ### 手順
 
@@ -22,10 +23,11 @@
    - [Google Cloud Console](https://console.cloud.google.com/) を開く
    - 新しいプロジェクトを作成、または既存のプロジェクトを選択
 
-2. **Gmail API を有効化**
+2. **必要な API を有効化**
    - 左メニューから「API とサービス」→「ライブラリ」を選択
-   - 検索バーで「Gmail API」を検索
-   - 「Gmail API」を選択し、「有効にする」をクリック
+   - 以下の API を検索して有効化:
+     - **Gmail API**: 検索バーで「Gmail API」を検索 → 「有効にする」
+     - **Google Calendar API**: 検索バーで「Google Calendar API」を検索 → 「有効にする」
 
 ---
 
@@ -41,6 +43,8 @@
    - スコープの追加:
      - `https://www.googleapis.com/auth/gmail.readonly`
      - `https://www.googleapis.com/auth/gmail.send`
+     - `https://www.googleapis.com/auth/calendar.readonly`
+     - `https://www.googleapis.com/auth/calendar.events`
    - **重要**: 「テストユーザー」セクションで、自分の Gmail アドレスを追加
      - 「+ ADD USERS」をクリック
      - 使用する Gmail アドレス（例: `yourname@gmail.com`）を入力
@@ -70,7 +74,48 @@ GMAIL_TOKEN_PATH=token.json
 
 ---
 
-## 3. Google Cloud Pub/Sub のセットアップ
+## 3. 統一トークンの生成
+
+### 手順
+
+1. **認証情報ファイルの配置**
+
+   - ダウンロードした `credentials.json` を `secrets/google_credentials.json` に配置
+   - 既存の `gmail_credentials.json` がある場合は、それを `google_credentials.json` にリネーム
+
+2. **統一トークンの生成**
+
+   ```bash
+   cd /Users/kakegawakouichi/workspace/langgraph-training
+   python scripts/init_google_token.py
+   ```
+
+   このスクリプトが実行されると:
+
+   - ブラウザが自動的に開きます
+   - Google アカウントでログイン
+   - Gmail API と Calendar API へのアクセス許可を一度に承認
+   - `secrets/google_token.json` が自動生成されます（両方のサービスで使用可能）
+
+3. **環境変数の設定**
+
+   `.env` ファイルに以下を設定:
+
+   ```bash
+   # Google Services API (統一設定)
+   GOOGLE_CREDENTIALS_PATH=secrets/google_credentials.json
+   GOOGLE_TOKEN_PATH=secrets/google_token.json
+
+   # 後方互換性のための個別設定
+   GMAIL_CREDENTIALS_PATH=secrets/google_credentials.json
+   GMAIL_TOKEN_PATH=secrets/google_token.json
+   CALENDAR_CREDENTIALS_PATH=secrets/google_credentials.json
+   CALENDAR_TOKEN_PATH=secrets/google_token.json
+   ```
+
+---
+
+## 4. Google Cloud Pub/Sub のセットアップ
 
 Gmail Push 通知を受け取るには、Google Cloud Pub/Sub を使用します。
 
