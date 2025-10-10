@@ -6,6 +6,7 @@ from src.nodes.document.ppt_ingest import ppt_ingest_handler
 from src.nodes.integrations.mcp.slack import SlackMCPInput, slack_mcp_node_handler
 from src.nodes.integrations.mcp.gmail import GmailMCPInput, gmail_mcp_node_handler
 from src.nodes.integrations.mcp.google_calendar import CalendarMCPInput, calendar_mcp_node_handler
+from src.nodes.integrations.mcp.google_sheets import SheetsMCPInput, sheets_mcp_node_handler
 from src.nodes.rag.rag_node import RAGInput, rag_node_handler
 from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
 from src.nodes.rag.search_node import SearchInput, search_node_handler
@@ -84,6 +85,19 @@ async def list_nodes():
                     "description": "string (optional)",
                     "location": "string (optional)",
                     "attendees": "array of strings (optional, email addresses)"
+                }
+            },
+            {
+                "name": "sheets-mcp",
+                "description": "Interact with Google Sheets via MCP integration",
+                "endpoint": "/nodes/sheets-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_spreadsheet, read_range, write_range, append_rows, clear_range, get_spreadsheet_info)",
+                    "spreadsheet_id": "string (optional, required for most actions)",
+                    "title": "string (optional, for create_spreadsheet)",
+                    "range": "string (optional, A1 notation like 'Sheet1!A1:D10')",
+                    "values": "array of arrays (optional, 2D array for write/append)"
                 }
             },
             {
@@ -205,6 +219,16 @@ async def call_calendar_mcp_node(input_data: CalendarMCPInput):
     """Execute Google Calendar node via MCP server"""
     try:
         result = await calendar_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sheets-mcp")
+async def call_sheets_mcp_node(input_data: SheetsMCPInput):
+    """Execute Google Sheets node via MCP server"""
+    try:
+        result = await sheets_mcp_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
