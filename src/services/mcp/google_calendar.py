@@ -19,11 +19,11 @@ except ImportError as e:
     stdio_client = None
 
 
-class GmailMCPClient(BaseMCPClient):
-    """Gmail MCP client for real MCP server communication"""
+class CalendarMCPClient(BaseMCPClient):
+    """Google Calendar MCP client for real MCP server communication"""
 
     def __init__(self, server_config: Optional[Dict[str, Any]] = None):
-        super().__init__("gmail")
+        super().__init__("calendar")
         self.server_config = server_config or {}
         self.session: Optional[ClientSession] = None
         self.stdio_transport = None
@@ -31,16 +31,16 @@ class GmailMCPClient(BaseMCPClient):
         self.write_stream = None
 
     async def connect(self) -> bool:
-        """Connect to real Gmail MCP server"""
+        """Connect to real Google Calendar MCP server"""
         if not MCP_AVAILABLE:
             logger.error("MCP library not available")
             return False
 
         try:
-            # Path to our Gmail MCP server
+            # Path to our Google Calendar MCP server
             server_script = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "mcp_servers", "google", "gmail", "server.py"
+                "..", "..", "mcp_servers", "google", "calendar", "server.py"
             )
             server_script = os.path.abspath(server_script)
 
@@ -68,19 +68,19 @@ class GmailMCPClient(BaseMCPClient):
 
             # Initialize the connection
             init_result = await self.session.initialize()
-            logger.info(f"Gmail MCP server initialized: {init_result}")
+            logger.info(f"Calendar MCP server initialized: {init_result}")
 
             self.connected = True
-            logger.info("Successfully connected to Gmail MCP server")
+            logger.info("Successfully connected to Google Calendar MCP server")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to connect to Gmail MCP server: {e}")
+            logger.error(f"Failed to connect to Calendar MCP server: {e}")
             await self.disconnect()
             return False
 
     async def disconnect(self) -> None:
-        """Disconnect from real Gmail MCP server"""
+        """Disconnect from real Google Calendar MCP server"""
         try:
             if self.session:
                 await self.session.__aexit__(None, None, None)
@@ -93,13 +93,13 @@ class GmailMCPClient(BaseMCPClient):
             self.read_stream = None
             self.write_stream = None
             self.connected = False
-            logger.info("Disconnected from Gmail MCP server")
+            logger.info("Disconnected from Calendar MCP server")
 
         except Exception as e:
             logger.error(f"Error during disconnection: {e}")
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute tool on real Gmail MCP server"""
+        """Execute tool on real Google Calendar MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -130,7 +130,7 @@ class GmailMCPClient(BaseMCPClient):
             raise MCPToolError(f"Tool execution failed: {str(e)}")
 
     async def list_tools(self) -> List[Dict[str, Any]]:
-        """Get tools from real Gmail MCP server"""
+        """Get tools from real Google Calendar MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -154,8 +154,8 @@ class GmailMCPClient(BaseMCPClient):
             raise MCPToolError(f"Failed to list tools: {str(e)}")
 
 
-def get_gmail_mcp_client() -> BaseMCPClient:
-    """Factory function to get Gmail MCP client"""
+def get_calendar_mcp_client() -> BaseMCPClient:
+    """Factory function to get Google Calendar MCP client"""
     if not MCP_AVAILABLE:
         try:
             # 再度インポートを試行
@@ -163,20 +163,20 @@ def get_gmail_mcp_client() -> BaseMCPClient:
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client
             logger.info("MCP library dynamically imported successfully")
-            return GmailMCPClient()
+            return CalendarMCPClient()
         except ImportError as e:
             logger.error(f"MCP library still not available: {e}")
             raise MCPConnectionError(f"MCP library not available. Please install with: pip install mcp")
 
-    logger.info("Using real Gmail MCP client")
-    return GmailMCPClient()
+    logger.info("Using real Calendar MCP client")
+    return CalendarMCPClient()
 
 
-class GmailMCPService:
-    """Service layer for Gmail MCP operations"""
+class CalendarMCPService:
+    """Service layer for Google Calendar MCP operations"""
 
     def __init__(self):
-        self.client = get_gmail_mcp_client()
+        self.client = get_calendar_mcp_client()
         self.connected = False
 
     async def ensure_connected(self):
@@ -186,28 +186,64 @@ class GmailMCPService:
             if success:
                 self.connected = True
             else:
-                raise MCPConnectionError("Failed to connect to Gmail MCP server")
+                raise MCPConnectionError("Failed to connect to Calendar MCP server")
 
-    async def watch_inbox(self, topic_name: str) -> Dict[str, Any]:
-        """Set up Gmail push notifications"""
+    async def list_events(self, calendar_id: str = "primary", max_results: int = 10,
+                         time_min: Optional[str] = None, time_max: Optional[str] = None) -> Dict[str, Any]:
+        """List events from Google Calendar"""
         await self.ensure_connected()
-        return await self.client.call_tool("watch_inbox", {"topic_name": topic_name})
-
-    async def get_messages(self, query: str = "", max_results: int = 10) -> Dict[str, Any]:
-        """Get messages from Gmail inbox"""
-        await self.ensure_connected()
-        return await self.client.call_tool("get_messages", {
-            "query": query,
+        params = {
+            "calendar_id": calendar_id,
             "max_results": max_results
-        })
+        }
+        if time_min:
+            params["time_min"] = time_min
+        if time_max:
+            params["time_max"] = time_max
+        return await self.client.call_tool("list_events", params)
 
-    async def send_message(self, to: str, subject: str, body: str) -> Dict[str, Any]:
-        """Send an email via Gmail"""
+    async def create_event(self, summary: str, start_time: str, end_time: str,
+                          calendar_id: str = "primary", description: str = "",
+                          location: str = "", attendees: List[str] = None) -> Dict[str, Any]:
+        """Create a new event in Google Calendar"""
         await self.ensure_connected()
-        return await self.client.call_tool("send_message", {
-            "to": to,
-            "subject": subject,
-            "body": body
+        params = {
+            "calendar_id": calendar_id,
+            "summary": summary,
+            "start_time": start_time,
+            "end_time": end_time,
+            "description": description,
+            "location": location
+        }
+        if attendees:
+            params["attendees"] = attendees
+        return await self.client.call_tool("create_event", params)
+
+    async def update_event(self, event_id: str, calendar_id: str = "primary",
+                          summary: Optional[str] = None, start_time: Optional[str] = None,
+                          end_time: Optional[str] = None, description: Optional[str] = None,
+                          location: Optional[str] = None) -> Dict[str, Any]:
+        """Update an existing event in Google Calendar"""
+        await self.ensure_connected()
+        params = {"calendar_id": calendar_id, "event_id": event_id}
+        if summary:
+            params["summary"] = summary
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
+        if description:
+            params["description"] = description
+        if location:
+            params["location"] = location
+        return await self.client.call_tool("update_event", params)
+
+    async def delete_event(self, event_id: str, calendar_id: str = "primary") -> Dict[str, Any]:
+        """Delete an event from Google Calendar"""
+        await self.ensure_connected()
+        return await self.client.call_tool("delete_event", {
+            "calendar_id": calendar_id,
+            "event_id": event_id
         })
 
     async def list_available_tools(self) -> List[Dict[str, Any]]:
