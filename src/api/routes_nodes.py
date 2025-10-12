@@ -7,6 +7,11 @@ from src.nodes.integrations.mcp.slack import SlackMCPInput, slack_mcp_node_handl
 from src.nodes.integrations.mcp.gmail import GmailMCPInput, gmail_mcp_node_handler
 from src.nodes.integrations.mcp.google_calendar import CalendarMCPInput, calendar_mcp_node_handler
 from src.nodes.integrations.mcp.google_sheets import SheetsMCPInput, sheets_mcp_node_handler
+from src.nodes.integrations.mcp.google_docs import DocsMCPInput, docs_mcp_node_handler
+from src.nodes.integrations.mcp.google_slides import SlidesMCPInput, slides_mcp_node_handler
+from src.nodes.integrations.mcp.google_forms import FormsMCPInput, forms_mcp_node_handler
+from src.nodes.integrations.mcp.google_keep import KeepMCPInput, keep_mcp_node_handler
+from src.nodes.integrations.mcp.google_apps_script import AppsScriptMCPInput, apps_script_mcp_node_handler
 from src.nodes.rag.rag_node import RAGInput, rag_node_handler
 from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
 from src.nodes.rag.search_node import SearchInput, search_node_handler
@@ -98,6 +103,78 @@ async def list_nodes():
                     "title": "string (optional, for create_spreadsheet)",
                     "range": "string (optional, A1 notation like 'Sheet1!A1:D10')",
                     "values": "array of arrays (optional, 2D array for write/append)"
+                }
+            },
+            {
+                "name": "docs-mcp",
+                "description": "Interact with Google Docs via MCP integration",
+                "endpoint": "/nodes/docs-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_document, read_document, append_text, insert_text, replace_text)",
+                    "document_id": "string (optional, required for most actions)",
+                    "title": "string (optional, for create_document)",
+                    "text": "string (optional, for text operations)",
+                    "index": "int (optional, for insert_text)",
+                    "find_text": "string (optional, for replace_text)",
+                    "replace_text": "string (optional, for replace_text)",
+                    "match_case": "bool (optional, for replace_text)"
+                }
+            },
+            {
+                "name": "slides-mcp",
+                "description": "Interact with Google Slides via MCP integration",
+                "endpoint": "/nodes/slides-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_presentation, read_presentation, add_slide, add_text_to_slide, delete_slide)",
+                    "presentation_id": "string (optional, required for most actions)",
+                    "title": "string (optional, for create_presentation)",
+                    "index": "int (optional, for add_slide)",
+                    "slide_id": "string (optional, for add_text_to_slide/delete_slide)",
+                    "text": "string (optional, for add_text_to_slide)"
+                }
+            },
+            {
+                "name": "forms-mcp",
+                "description": "Interact with Google Forms via MCP integration",
+                "endpoint": "/nodes/forms-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_form, get_form, list_responses, get_response, update_form)",
+                    "form_id": "string (optional, required for most actions)",
+                    "title": "string (optional, for create_form/update_form)",
+                    "description": "string (optional, for create_form/update_form)",
+                    "response_id": "string (optional, required for get_response)"
+                }
+            },
+            {
+                "name": "keep-mcp",
+                "description": "Interact with Google Keep via MCP integration",
+                "endpoint": "/nodes/keep-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_note, list_notes, get_note, update_note, delete_note)",
+                    "note_id": "string (optional, required for get_note/update_note/delete_note)",
+                    "title": "string (optional, for create_note/update_note)",
+                    "body": "string (optional, required for create_note, optional for update_note)",
+                    "page_size": "int (optional, default: 10, max: 100, for list_notes)"
+                }
+            },
+            {
+                "name": "apps-script-mcp",
+                "description": "Interact with Google Apps Script via MCP integration",
+                "endpoint": "/nodes/apps-script-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_project, get_project, update_project, run_function, list_deployments)",
+                    "script_id": "string (optional, required for most actions)",
+                    "title": "string (optional, for create_project)",
+                    "file_name": "string (optional, for update_project)",
+                    "file_type": "string (optional, default: SERVER_JS, options: SERVER_JS, HTML, JSON)",
+                    "source": "string (optional, for update_project)",
+                    "function_name": "string (optional, for run_function)",
+                    "parameters": "array (optional, for run_function)"
                 }
             },
             {
@@ -229,6 +306,56 @@ async def call_sheets_mcp_node(input_data: SheetsMCPInput):
     """Execute Google Sheets node via MCP server"""
     try:
         result = await sheets_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/docs-mcp")
+async def call_docs_mcp_node(input_data: DocsMCPInput):
+    """Execute Google Docs node via MCP server"""
+    try:
+        result = await docs_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/slides-mcp")
+async def call_slides_mcp_node(input_data: SlidesMCPInput):
+    """Execute Google Slides node via MCP server"""
+    try:
+        result = await slides_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/forms-mcp")
+async def call_forms_mcp_node(input_data: FormsMCPInput):
+    """Execute Google Forms node via MCP server"""
+    try:
+        result = await forms_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/keep-mcp")
+async def call_keep_mcp_node(input_data: KeepMCPInput):
+    """Execute Google Keep node via MCP server"""
+    try:
+        result = await keep_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/apps-script-mcp")
+async def call_apps_script_mcp_node(input_data: AppsScriptMCPInput):
+    """Execute Google Apps Script node via MCP server"""
+    try:
+        result = await apps_script_mcp_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
