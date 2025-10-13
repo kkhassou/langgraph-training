@@ -4,6 +4,7 @@ from typing import Dict, Any
 from src.nodes.llm.gemini import GeminiInput, gemini_node_handler
 from src.nodes.document.ppt_ingest import ppt_ingest_handler
 from src.nodes.integrations.mcp.slack import SlackMCPInput, slack_mcp_node_handler
+from src.nodes.integrations.mcp.notion import NotionMCPInput, notion_mcp_node_handler
 from src.nodes.integrations.mcp.gmail import GmailMCPInput, gmail_mcp_node_handler
 from src.nodes.integrations.mcp.google_calendar import CalendarMCPInput, calendar_mcp_node_handler
 from src.nodes.integrations.mcp.google_sheets import SheetsMCPInput, sheets_mcp_node_handler
@@ -56,6 +57,25 @@ async def list_nodes():
                     "action": "string (get_channels, send_message)",
                     "channel": "string (optional)",
                     "message": "string (optional)"
+                }
+            },
+            {
+                "name": "notion-mcp",
+                "description": "Interact with Notion via MCP integration",
+                "endpoint": "/nodes/notion-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (create_page, get_page, update_page, query_database, create_database_entry, search)",
+                    "page_id": "string (optional, required for get_page/update_page)",
+                    "parent_id": "string (optional, required for create_page)",
+                    "database_id": "string (optional, required for query_database/create_database_entry)",
+                    "title": "string (optional, for create_page/update_page)",
+                    "content": "string (optional, for create_page)",
+                    "filter": "object (optional, for query_database/search)",
+                    "sorts": "array (optional, for query_database)",
+                    "page_size": "int (optional, default: 10, for query_database)",
+                    "properties": "object (optional, required for create_database_entry)",
+                    "query": "string (optional, required for search)"
                 }
             },
             {
@@ -293,6 +313,16 @@ async def call_slack_mcp_node(input_data: SlackMCPInput):
     """Execute Slack node via MCP server"""
     try:
         result = await slack_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/notion-mcp")
+async def call_notion_mcp_node(input_data: NotionMCPInput):
+    """Execute Notion node via MCP server"""
+    try:
+        result = await notion_mcp_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
