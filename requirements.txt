@@ -37,3 +37,6 @@ vertexai>=1.38.0
 
 # Notion
 notion-client>=2.2.1
+
+# GitHub
+PyGithub>=2.1.1
