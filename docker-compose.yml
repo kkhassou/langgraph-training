@@ -9,6 +9,7 @@ services:
       - JIRA_TOKEN=${JIRA_TOKEN}
       - JIRA_SERVER=${JIRA_SERVER}
       - JIRA_EMAIL=${JIRA_EMAIL}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
     env_file:
       - .env
     volumes:

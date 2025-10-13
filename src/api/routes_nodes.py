@@ -5,6 +5,7 @@ from src.nodes.llm.gemini import GeminiInput, gemini_node_handler
 from src.nodes.document.ppt_ingest import ppt_ingest_handler
 from src.nodes.integrations.mcp.slack import SlackMCPInput, slack_mcp_node_handler
 from src.nodes.integrations.mcp.notion import NotionMCPInput, notion_mcp_node_handler
+from src.nodes.integrations.mcp.github import GitHubMCPInput, github_mcp_node_handler
 from src.nodes.integrations.mcp.gmail import GmailMCPInput, gmail_mcp_node_handler
 from src.nodes.integrations.mcp.google_calendar import CalendarMCPInput, calendar_mcp_node_handler
 from src.nodes.integrations.mcp.google_sheets import SheetsMCPInput, sheets_mcp_node_handler
@@ -76,6 +77,26 @@ async def list_nodes():
                     "page_size": "int (optional, default: 10, for query_database)",
                     "properties": "object (optional, required for create_database_entry)",
                     "query": "string (optional, required for search)"
+                }
+            },
+            {
+                "name": "github-mcp",
+                "description": "Interact with GitHub via MCP integration",
+                "endpoint": "/nodes/github-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (get_repository, list_issues, create_issue, get_file, create_pull_request, list_pull_requests, search_repositories)",
+                    "repo": "string (optional, required for most actions, format: owner/repo)",
+                    "state": "string (optional, default: open, options: open, closed, all)",
+                    "limit": "int (optional, default: 10)",
+                    "title": "string (optional, required for create_issue/create_pull_request)",
+                    "body": "string (optional, for create_issue/create_pull_request)",
+                    "labels": "array of strings (optional, for create_issue)",
+                    "path": "string (optional, required for get_file)",
+                    "branch": "string (optional, default: main)",
+                    "head": "string (optional, required for create_pull_request)",
+                    "base": "string (optional, default: main, for create_pull_request)",
+                    "query": "string (optional, required for search_repositories)"
                 }
             },
             {
@@ -323,6 +344,16 @@ async def call_notion_mcp_node(input_data: NotionMCPInput):
     """Execute Notion node via MCP server"""
     try:
         result = await notion_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/github-mcp")
+async def call_github_mcp_node(input_data: GitHubMCPInput):
+    """Execute GitHub node via MCP server"""
+    try:
+        result = await github_mcp_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
