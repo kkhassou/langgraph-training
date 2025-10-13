@@ -12,6 +12,7 @@ from src.nodes.integrations.mcp.google_slides import SlidesMCPInput, slides_mcp_
 from src.nodes.integrations.mcp.google_forms import FormsMCPInput, forms_mcp_node_handler
 from src.nodes.integrations.mcp.google_keep import KeepMCPInput, keep_mcp_node_handler
 from src.nodes.integrations.mcp.google_apps_script import AppsScriptMCPInput, apps_script_mcp_node_handler
+from src.nodes.integrations.mcp.vertex_ai import VertexAIMCPInput, vertex_ai_mcp_node_handler
 from src.nodes.rag.rag_node import RAGInput, rag_node_handler
 from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
 from src.nodes.rag.search_node import SearchInput, search_node_handler
@@ -175,6 +176,22 @@ async def list_nodes():
                     "source": "string (optional, for update_project)",
                     "function_name": "string (optional, for run_function)",
                     "parameters": "array (optional, for run_function)"
+                }
+            },
+            {
+                "name": "vertex-ai-mcp",
+                "description": "Interact with Google Vertex AI via MCP integration",
+                "endpoint": "/nodes/vertex-ai-mcp",
+                "method": "POST",
+                "input_schema": {
+                    "action": "string (generate_text, chat, generate_embeddings, list_models)",
+                    "prompt": "string (optional, required for generate_text)",
+                    "message": "string (optional, required for chat)",
+                    "model": "string (optional, default: gemini-1.5-flash)",
+                    "temperature": "float (optional, default: 0.7, range: 0.0-2.0)",
+                    "max_tokens": "int (optional, default: 1024)",
+                    "history": "array (optional, for chat)",
+                    "texts": "array of strings (optional, required for generate_embeddings)"
                 }
             },
             {
@@ -356,6 +373,16 @@ async def call_apps_script_mcp_node(input_data: AppsScriptMCPInput):
     """Execute Google Apps Script node via MCP server"""
     try:
         result = await apps_script_mcp_node_handler(input_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/vertex-ai-mcp")
+async def call_vertex_ai_mcp_node(input_data: VertexAIMCPInput):
+    """Execute Vertex AI node via MCP server"""
+    try:
+        result = await vertex_ai_mcp_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
