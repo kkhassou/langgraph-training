@@ -34,3 +34,6 @@ google-auth-oauthlib>=1.2.1
 # Vertex AI
 google-cloud-aiplatform>=1.38.0
 vertexai>=1.38.0
+
+# Notion
+notion-client>=2.2.1
