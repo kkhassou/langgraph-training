@@ -17,10 +17,10 @@ COPY src/ ./src/
 COPY mcp_servers/ ./mcp_servers/
 
 # Create necessary directories
-RUN mkdir -p docs/diagrams
+RUN mkdir -p docs/diagrams secrets uploads
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application (remove --reload for production)
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
