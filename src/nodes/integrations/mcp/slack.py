@@ -59,6 +59,15 @@ class SlackMCPNode(BaseNode):
 
                 result = await self.service.send_message(channel, text)
 
+                # Check if the result contains an error
+                is_error = result.get("isError", False)
+                
+                if is_error:
+                    # Extract error message from MCP response
+                    content = result.get("content", [])
+                    error_msg = content[0].get("text", "Unknown error") if content else "Unknown error"
+                    raise Exception(f"Error executing send_message: {error_msg}")
+
                 # Extract message info from MCP response
                 message_info = result.get("message", {})
                 state.data["sent_message"] = message_info
@@ -279,8 +288,13 @@ async def slack_mcp_node_handler(input_data: SlackMCPInput) -> SlackMCPOutput:
         if result_state.messages:
             output_text = result_state.messages[-1]
 
+        # Check if output_text indicates an error
+        is_error = "Error" in output_text or "error" in output_text.lower()
+        
         return SlackMCPOutput(
             output_text=output_text,
+            success=not is_error,
+            error_message=output_text if is_error else None,
             channels=result_state.data.get("channels", []),
             messages=result_state.data.get("messages", []),
             sent_message=result_state.data.get("sent_message"),
