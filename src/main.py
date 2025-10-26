@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import os
 
 from src.core.config import settings
-from src.api import routes_nodes, routes_graphs
+from src.api import routes_nodes, routes_graphs, routes_workflows
 
 # Create FastAPI app
 app = FastAPI(
@@ -52,6 +52,7 @@ app.add_middleware(
 # Include routers
 app.include_router(routes_nodes.router)
 app.include_router(routes_graphs.router)
+app.include_router(routes_workflows.router)
 
 
 @app.get("/", response_class=HTMLResponse)
