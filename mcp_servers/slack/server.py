@@ -58,24 +58,24 @@ async def list_tools() -> ListToolsResult:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "channel_id": {"type": "string", "description": "Channel ID"},
+                        "channel": {"type": "string", "description": "Channel ID"},
                         "limit": {"type": "integer", "description": "Number of messages to fetch", "default": 100},
                         "days_back": {"type": "integer", "description": "How many days back to fetch", "default": 7},
                     },
-                    "required": ["channel_id"],
+                    "required": ["channel"],
                 },
             ),
             Tool(
-                name="post_message",
+                name="send_message",
                 description="Post a message to a channel",
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "channel_id": {"type": "string", "description": "Channel ID"},
+                        "channel": {"type": "string", "description": "Channel ID"},
                         "text": {"type": "string", "description": "Message text"},
                         "thread_ts": {"type": "string", "description": "Thread timestamp for reply"},
                     },
-                    "required": ["channel_id", "text"],
+                    "required": ["channel", "text"],
                 },
             ),
             Tool(
@@ -136,7 +136,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
             return await handle_list_channels()
         elif name == "get_messages":
             return await handle_get_messages(arguments)
-        elif name == "post_message":
+        elif name == "send_message":
             return await handle_post_message(arguments)
         elif name == "get_user":
             return await handle_get_user(arguments)
@@ -193,7 +193,7 @@ async def handle_list_channels() -> CallToolResult:
 async def handle_get_messages(arguments: Dict[str, Any]) -> CallToolResult:
     """Handle get_messages tool"""
     try:
-        channel_id = arguments["channel_id"]
+        channel_id = arguments["channel"]
         limit = arguments.get("limit", 100)
         days_back = arguments.get("days_back", 7)
 
@@ -235,7 +235,7 @@ async def handle_get_messages(arguments: Dict[str, Any]) -> CallToolResult:
 async def handle_post_message(arguments: Dict[str, Any]) -> CallToolResult:
     """Handle post_message tool"""
     try:
-        channel_id = arguments["channel_id"]
+        channel_id = arguments["channel"]
         text = arguments["text"]
         thread_ts = arguments.get("thread_ts")
 
