@@ -107,14 +107,32 @@ Google Services（Gmail, Calendar, Sheets等）を使用する場合：
    https://your-app-name.onrender.com/slack/interactions
    ```
 
-### 3.5 Slash Commands（オプション）
+### 3.5 Slash Commands
 
-スラッシュコマンドを追加する場合：
+以下のスラッシュコマンドを追加します：
+
+#### `/todo` コマンド（TODOワークフロー）
 
 1. "Slash Commands" → "Create New Command"
-2. Command: `/todo`
-3. Request URL: `https://your-app-name.onrender.com/slack/commands`
-4. Description: "Create TODO items"
+2. 設定:
+   - **Command**: `/todo`
+   - **Request URL**: `https://your-app-name.onrender.com/slack/cmd/todo`
+   - **Short Description**: "TODOワークフローを実行"
+   - **Usage Hint**: `[タスク内容]`
+3. "Save"
+
+#### `/debug` コマンド（デバッグ用・オプション）
+
+開発時のデバッグ用:
+- **Command**: `/debug`
+- **Request URL**: `https://your-app-name.onrender.com/slack/cmd/debug`
+- **Short Description**: "受信データを表示"
+
+#### 汎用コマンドエンドポイント（全コマンド対応）
+
+全てのコマンドを一つのエンドポイントで受ける場合:
+- **Request URL**: `https://your-app-name.onrender.com/slack/commands`
+- 受信データをそのまま返すデバッグ用エンドポイント
 
 ### 3.6 App Credentials
 

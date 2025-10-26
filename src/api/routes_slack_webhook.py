@@ -218,34 +218,105 @@ async def slack_slash_commands(request: Request):
     """
     Handle Slack slash commands
 
-    Example: /todo <task description>
+    Slack sends data as application/x-www-form-urlencoded:
+    - token: Verification token
+    - team_id: Workspace ID
+    - team_domain: Workspace domain
+    - channel_id: Channel where command was issued
+    - channel_name: Channel name
+    - user_id: User who issued the command
+    - user_name: Username
+    - command: The command that was typed (e.g., /todo)
+    - text: Text after the command
+    - response_url: URL to send delayed responses
+    - trigger_id: Trigger ID for opening modals
     """
     try:
+        # Parse form data from Slack
         form_data = await request.form()
 
-        command = form_data.get("command")
+        # Extract all Slack command parameters
+        token = form_data.get("token", "")
+        team_id = form_data.get("team_id", "")
+        team_domain = form_data.get("team_domain", "")
+        channel_id = form_data.get("channel_id", "")
+        channel_name = form_data.get("channel_name", "")
+        user_id = form_data.get("user_id", "")
+        user_name = form_data.get("user_name", "")
+        command = form_data.get("command", "")
         text = form_data.get("text", "")
-        user_id = form_data.get("user_id")
-        channel_id = form_data.get("channel_id")
+        response_url = form_data.get("response_url", "")
+        trigger_id = form_data.get("trigger_id", "")
 
-        logger.info(f"Slash command received: {command} from {user_id}")
+        # Log received data
+        logger.info(f"Slash command received: {command} from {user_name} ({user_id})")
+        logger.info(f"Channel: {channel_name} ({channel_id})")
+        logger.info(f"Text: {text}")
 
-        # Handle different commands
-        if command == "/todo":
-            # Trigger TODO workflow
-            return {
-                "response_type": "ephemeral",
-                "text": f"Processing your TODO: {text}"
-            }
+        # Create response with all received data
+        received_data = {
+            "token": token,
+            "team_id": team_id,
+            "team_domain": team_domain,
+            "channel_id": channel_id,
+            "channel_name": channel_name,
+            "user_id": user_id,
+            "user_name": user_name,
+            "command": command,
+            "text": text,
+            "response_url": response_url,
+            "trigger_id": trigger_id
+        }
 
+        # Format the data for display in Slack
+        formatted_data = "📥 *受信したデータ:*\n\n"
+        for key, value in received_data.items():
+            # Mask sensitive data (token)
+            if key == "token" and value:
+                value = value[:10] + "..." if len(value) > 10 else "***"
+            formatted_data += f"• *{key}*: `{value}`\n"
+
+        # Return immediate response to Slack
+        # response_type: "ephemeral" (only visible to user) or "in_channel" (visible to everyone)
         return {
-            "response_type": "ephemeral",
-            "text": "Command not recognized"
+            "response_type": "ephemeral",  # Only the user who ran the command will see this
+            "text": f"コマンドを受信しました: {command}",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"✅ *コマンド実行*: `{command}`"
+                    }
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": formatted_data
+                    }
+                },
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"実行者: <@{user_id}> | チャンネル: #{channel_name} | ワークスペース: {team_domain}"
+                        }
+                    ]
+                }
+            ]
         }
 
     except Exception as e:
         logger.error(f"Error handling slash command: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Request headers: {request.headers}")
+
+        # Return error message to Slack
+        return {
+            "response_type": "ephemeral",
+            "text": f"❌ エラーが発生しました: {str(e)}"
+        }
 
 
 @router.get("/health")

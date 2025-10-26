@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import os
 
 from src.core.config import settings
-from src.api import routes_nodes, routes_graphs, routes_workflows, routes_slack_webhook
+from src.api import routes_nodes, routes_graphs, routes_workflows, routes_slack_webhook, routes_slack_commands
 
 # Create FastAPI app
 app = FastAPI(
@@ -54,6 +54,7 @@ app.include_router(routes_nodes.router)
 app.include_router(routes_graphs.router)
 app.include_router(routes_workflows.router)
 app.include_router(routes_slack_webhook.router)
+app.include_router(routes_slack_commands.router)
 
 
 @app.get("/", response_class=HTMLResponse)
