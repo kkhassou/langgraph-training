@@ -1,8 +1,9 @@
 from typing import List, Dict, Any, Optional
 from enum import Enum
+from pydantic import Field
 
 from src.nodes.base import BaseNode, NodeState, NodeInput, NodeOutput
-from src.services.mcp.slack import SlackMCPService
+from src.mcp.clients.slack import SlackMCPService
 
 
 class SlackMCPActionType(str, Enum):
@@ -25,7 +26,7 @@ class SlackMCPNode(BaseNode):
     async def execute(self, state: NodeState) -> NodeState:
         """Execute Slack MCP operation"""
         try:
-            action = state.data.get("action", SlackMCPActionType.GET_CHANNELS)
+            action = state.data.get("action", SlackMCPActionType.SEND_MESSAGE)
 
             if action == SlackMCPActionType.GET_CHANNELS:
                 result = await self.service.get_channels()
@@ -133,10 +134,22 @@ class SlackMCPNode(BaseNode):
 
 class SlackMCPInput(NodeInput):
     """Input model for Slack MCP node"""
-    action: SlackMCPActionType
-    channel: Optional[str] = None
-    text: Optional[str] = None
-    limit: int = 10
+    action: SlackMCPActionType = Field(
+        default=SlackMCPActionType.SEND_MESSAGE,
+        description="Slack action to perform (get_channels, send_message, get_messages, list_tools)"
+    )
+    channel: Optional[str] = Field(
+        default="C09HH9HTQJ2",
+        description="Slack channel ID (e.g., C09HH9HTQJ2)"
+    )
+    text: Optional[str] = Field(
+        default="Hello from LangGraph Training API! 🚀",
+        description="Message text to send (required for send_message action)"
+    )
+    limit: int = Field(
+        default=10,
+        description="Number of messages to retrieve (for get_messages action)"
+    )
 
 
 class SlackMCPOutput(NodeOutput):
@@ -152,7 +165,7 @@ async def slack_mcp_node_handler(input_data: SlackMCPInput) -> SlackMCPOutput:
     try:
         # For get_channels action, directly call the MCP service (known working approach)
         if input_data.action == SlackMCPActionType.GET_CHANNELS:
-            from src.services.mcp.slack import SlackMCPService
+            from src.mcp.clients.slack import SlackMCPService
             
             service = SlackMCPService()
             try:
@@ -201,7 +214,7 @@ async def slack_mcp_node_handler(input_data: SlackMCPInput) -> SlackMCPOutput:
                 
         # For get_messages action, directly call the MCP service 
         elif input_data.action == SlackMCPActionType.GET_MESSAGES:
-            from src.services.mcp.slack import SlackMCPService
+            from src.mcp.clients.slack import SlackMCPService
             
             if not input_data.channel:
                 return SlackMCPOutput(

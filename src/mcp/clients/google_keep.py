@@ -19,11 +19,11 @@ except ImportError as e:
     stdio_client = None
 
 
-class FormsMCPClient(BaseMCPClient):
-    """Google Forms MCP client for real MCP server communication"""
+class KeepMCPClient(BaseMCPClient):
+    """Google Keep MCP client for real MCP server communication"""
 
     def __init__(self, server_config: Optional[Dict[str, Any]] = None):
-        super().__init__("forms")
+        super().__init__("keep")
         self.server_config = server_config or {}
         self.session: Optional[ClientSession] = None
         self.stdio_transport = None
@@ -31,7 +31,7 @@ class FormsMCPClient(BaseMCPClient):
         self.write_stream = None
 
     async def connect(self) -> bool:
-        """Connect to real Google Forms MCP server"""
+        """Connect to real Google Keep MCP server"""
         if not MCP_AVAILABLE:
             logger.error("MCP library not available")
             return False
@@ -39,7 +39,7 @@ class FormsMCPClient(BaseMCPClient):
         try:
             server_script = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "mcp_servers", "google", "forms", "server.py"
+                "..", "..", "mcp/servers", "google", "keep", "server.py"
             )
             server_script = os.path.abspath(server_script)
 
@@ -61,19 +61,19 @@ class FormsMCPClient(BaseMCPClient):
             await self.session.__aenter__()
 
             init_result = await self.session.initialize()
-            logger.info(f"Forms MCP server initialized: {init_result}")
+            logger.info(f"Keep MCP server initialized: {init_result}")
 
             self.connected = True
-            logger.info("Successfully connected to Google Forms MCP server")
+            logger.info("Successfully connected to Google Keep MCP server")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to connect to Forms MCP server: {e}")
+            logger.error(f"Failed to connect to Keep MCP server: {e}")
             await self.disconnect()
             return False
 
     async def disconnect(self) -> None:
-        """Disconnect from real Google Forms MCP server"""
+        """Disconnect from real Google Keep MCP server"""
         try:
             if self.session:
                 await self.session.__aexit__(None, None, None)
@@ -86,13 +86,13 @@ class FormsMCPClient(BaseMCPClient):
             self.read_stream = None
             self.write_stream = None
             self.connected = False
-            logger.info("Disconnected from Forms MCP server")
+            logger.info("Disconnected from Keep MCP server")
 
         except Exception as e:
             logger.error(f"Error during disconnection: {e}")
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute tool on real Google Forms MCP server"""
+        """Execute tool on real Google Keep MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -121,7 +121,7 @@ class FormsMCPClient(BaseMCPClient):
             raise MCPToolError(f"Tool execution failed: {str(e)}")
 
     async def list_tools(self) -> List[Dict[str, Any]]:
-        """Get tools from real Google Forms MCP server"""
+        """Get tools from real Google Keep MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -143,28 +143,28 @@ class FormsMCPClient(BaseMCPClient):
             raise MCPToolError(f"Failed to list tools: {str(e)}")
 
 
-def get_forms_mcp_client() -> BaseMCPClient:
-    """Factory function to get Google Forms MCP client"""
+def get_keep_mcp_client() -> BaseMCPClient:
+    """Factory function to get Google Keep MCP client"""
     if not MCP_AVAILABLE:
         try:
             import mcp
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client
             logger.info("MCP library dynamically imported successfully")
-            return FormsMCPClient()
+            return KeepMCPClient()
         except ImportError as e:
             logger.error(f"MCP library still not available: {e}")
             raise MCPConnectionError(f"MCP library not available. Please install with: pip install mcp")
 
-    logger.info("Using real Forms MCP client")
-    return FormsMCPClient()
+    logger.info("Using real Keep MCP client")
+    return KeepMCPClient()
 
 
-class FormsMCPService:
-    """Service layer for Google Forms MCP operations"""
+class KeepMCPService:
+    """Service layer for Google Keep MCP operations"""
 
     def __init__(self):
-        self.client = get_forms_mcp_client()
+        self.client = get_keep_mcp_client()
         self.connected = False
 
     async def ensure_connected(self):
@@ -174,43 +174,40 @@ class FormsMCPService:
             if success:
                 self.connected = True
             else:
-                raise MCPConnectionError("Failed to connect to Forms MCP server")
+                raise MCPConnectionError("Failed to connect to Keep MCP server")
 
-    async def create_form(self, title: str = "Untitled Form", description: Optional[str] = None) -> Dict[str, Any]:
-        """Create a new form"""
+    async def create_note(self, body: str, title: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new note"""
         await self.ensure_connected()
-        params = {"title": title}
-        if description:
-            params["description"] = description
-        return await self.client.call_tool("create_form", params)
-
-    async def get_form(self, form_id: str) -> Dict[str, Any]:
-        """Get form structure and metadata"""
-        await self.ensure_connected()
-        return await self.client.call_tool("get_form", {"form_id": form_id})
-
-    async def list_responses(self, form_id: str) -> Dict[str, Any]:
-        """List all responses for a form"""
-        await self.ensure_connected()
-        return await self.client.call_tool("list_responses", {"form_id": form_id})
-
-    async def get_response(self, form_id: str, response_id: str) -> Dict[str, Any]:
-        """Get a specific form response"""
-        await self.ensure_connected()
-        return await self.client.call_tool("get_response", {
-            "form_id": form_id,
-            "response_id": response_id
-        })
-
-    async def update_form(self, form_id: str, title: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
-        """Update form title or description"""
-        await self.ensure_connected()
-        params = {"form_id": form_id}
+        params = {"body": body}
         if title:
             params["title"] = title
-        if description:
-            params["description"] = description
-        return await self.client.call_tool("update_form", params)
+        return await self.client.call_tool("create_note", params)
+
+    async def list_notes(self, page_size: int = 10) -> Dict[str, Any]:
+        """List all notes"""
+        await self.ensure_connected()
+        return await self.client.call_tool("list_notes", {"page_size": page_size})
+
+    async def get_note(self, note_id: str) -> Dict[str, Any]:
+        """Get a specific note"""
+        await self.ensure_connected()
+        return await self.client.call_tool("get_note", {"note_id": note_id})
+
+    async def update_note(self, note_id: str, title: Optional[str] = None, body: Optional[str] = None) -> Dict[str, Any]:
+        """Update a note"""
+        await self.ensure_connected()
+        params = {"note_id": note_id}
+        if title:
+            params["title"] = title
+        if body:
+            params["body"] = body
+        return await self.client.call_tool("update_note", params)
+
+    async def delete_note(self, note_id: str) -> Dict[str, Any]:
+        """Delete a note"""
+        await self.ensure_connected()
+        return await self.client.call_tool("delete_note", {"note_id": note_id})
 
     async def list_available_tools(self) -> List[Dict[str, Any]]:
         """List available MCP tools"""

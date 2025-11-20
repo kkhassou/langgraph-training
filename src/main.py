@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import os
 
 from src.core.config import settings
-from src.api import routes_nodes, routes_graphs, routes_workflows, routes_slack_webhook, routes_slack_commands
+from src.api import routes_nodes, routes_workflows, routes_slack_webhook, routes_slack_commands
 
 # Create FastAPI app
 app = FastAPI(
@@ -15,22 +15,24 @@ app = FastAPI(
     このAPIは、トレーニングワークショップ用の様々なLangGraphノードとワークフローへのアクセスを提供します。
 
     ### 機能:
-    - **ノード**: 個別の処理ユニット（LLM、PowerPoint、Slack、Jira）
-    - **グラフ**: 複数のノードを組み合わせた構成済みワークフロー
-    - **パターン**: ReflectionやChain of Thoughtなどの高度なパターン
-    - **可視化**: ワークフロー可視化用のMermaid図
+    - **ノード** (`/nodes/`): 個別の処理ユニット（LLM、PowerPoint、Slack、Gmail など）
+    - **ワークフロー** (`/workflows/`): 複数のノードを組み合わせた完全なワークフロー
+      - 基本ワークフロー: SimpleChatGraph, PPTSummaryGraph
+      - パターン: Reflection, Chain of Thought
+      - 高度: RAG, TODO 処理
+    - **可視化**: ワークフロー可視化用の Mermaid 図
 
     ### はじめに:
-    1. `.env`ファイルでAPIキーを設定してください
-    2. 個別ノードを試して機能を理解してください
-    3. 複数のノードを組み合わせたグラフワークフローを探索してください
-    4. 高度なユースケース向けのデザインパターンを実験してください
+    1. `.env` ファイルで API キーを設定してください
+    2. 個別ノードを試して機能を理解してください（`/nodes/`）
+    3. ワークフローを実行して複数ノードの組み合わせを体験してください（`/workflows/`）
+    4. 図で可視化してワークフロー構造を理解してください（`/workflows/diagrams/{name}`）
 
     ### ワークショップの流れ:
     - ステップ1: 個別ノードをテスト（`/nodes/`）
-    - ステップ2: 完全なワークフローを実行（`/graphs/`）
-    - ステップ3: デザインパターンを適用（`/patterns`）
-    - ステップ4: 図で可視化（`/docs/diagrams/{graph_name}`）
+    - ステップ2: 完全なワークフローを実行（`/workflows/`）
+    - ステップ3: デザインパターンを適用（`/workflows/reflection`, `/workflows/chain-of-thought`）
+    - ステップ4: 図で可視化（`/workflows/diagrams/{workflow_name}`）
 
     """,
     version="1.0.0",
@@ -51,7 +53,6 @@ app.add_middleware(
 
 # Include routers
 app.include_router(routes_nodes.router)
-app.include_router(routes_graphs.router)
 app.include_router(routes_workflows.router)
 app.include_router(routes_slack_webhook.router)
 app.include_router(routes_slack_commands.router)
@@ -99,8 +100,8 @@ async def root():
             </div>
 
             <div class="endpoint">
-                <strong><span class="method">GET</span> <a href="/graphs/">/graphs/</a></strong><br>
-                List all available graph workflows
+                <strong><span class="method">GET</span> <a href="/workflows/">/workflows/</a></strong><br>
+                List all available workflows
             </div>
 
             <div class="endpoint">
@@ -114,31 +115,31 @@ async def root():
             </div>
 
             <div class="endpoint">
-                <strong><span class="method">POST</span> /graphs/ppt-summary</strong><br>
-                Complete workflow: PowerPoint � Text Extraction � AI Summary
+                <strong><span class="method">POST</span> /workflows/ppt-summary</strong><br>
+                Complete workflow: PowerPoint → Text Extraction → AI Summary
             </div>
 
             <div class="endpoint">
-                <strong><span class="method">POST</span> /graphs/slack-report</strong><br>
-                Complete workflow: Slack Messages � Analysis � Report Generation
-            </div>
-
-            <div class="endpoint">
-                <strong><span class="method">POST</span> /graphs/reflection</strong><br>
+                <strong><span class="method">POST</span> /workflows/reflection</strong><br>
                 Advanced pattern: Iterative improvement through self-reflection
             </div>
 
             <div class="endpoint">
-                <strong><span class="method">GET</span> /graphs/diagrams/{graph_name}</strong><br>
+                <strong><span class="method">POST</span> /workflows/todo</strong><br>
+                Advanced workflow: Parse TODOs from email, generate advice, send response
+            </div>
+
+            <div class="endpoint">
+                <strong><span class="method">GET</span> /workflows/diagrams/{workflow_name}</strong><br>
                 Get Mermaid diagram visualization for any workflow
             </div>
 
-            <h2><� Workshop Progression</h2>
+            <h2>📚 Workshop Progression</h2>
             <ol>
-                <li><strong>Node Exploration</strong>: Test individual components</li>
-                <li><strong>Graph Assembly</strong>: Combine nodes into workflows</li>
-                <li><strong>Pattern Application</strong>: Use advanced design patterns</li>
-                <li><strong>Visualization</strong>: Understand workflow structure</li>
+                <li><strong>Node Exploration</strong>: Test individual components at <code>/nodes/</code></li>
+                <li><strong>Workflow Assembly</strong>: Combine nodes into workflows at <code>/workflows/</code></li>
+                <li><strong>Pattern Application</strong>: Use advanced design patterns (Reflection, Chain of Thought)</li>
+                <li><strong>Visualization</strong>: Understand workflow structure with Mermaid diagrams</li>
                 <li><strong>Custom Development</strong>: Build your own solutions</li>
             </ol>
 

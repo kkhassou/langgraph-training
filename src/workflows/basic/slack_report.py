@@ -52,7 +52,7 @@ class SlackReportGraph:
     async def _collect_messages_step(self, state: NodeState) -> NodeState:
         """Collect messages from Slack channel"""
         try:
-            from src.services.mcp.slack import SlackMCPService
+            from src.mcp.clients.slack import SlackMCPService
             
             channel_id = state.data.get("channel_id")
             limit = state.data.get("limit", 100)

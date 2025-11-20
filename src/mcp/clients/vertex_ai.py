@@ -19,11 +19,11 @@ except ImportError as e:
     stdio_client = None
 
 
-class NotionMCPClient(BaseMCPClient):
-    """Notion MCP client for real MCP server communication"""
+class VertexAIMCPClient(BaseMCPClient):
+    """Vertex AI MCP client for real MCP server communication"""
 
     def __init__(self, server_config: Optional[Dict[str, Any]] = None):
-        super().__init__("notion")
+        super().__init__("vertex_ai")
         self.server_config = server_config or {}
         self.session: Optional[ClientSession] = None
         self.stdio_transport = None
@@ -31,7 +31,7 @@ class NotionMCPClient(BaseMCPClient):
         self.write_stream = None
 
     async def connect(self) -> bool:
-        """Connect to real Notion MCP server"""
+        """Connect to real Vertex AI MCP server"""
         if not MCP_AVAILABLE:
             logger.error("MCP library not available")
             return False
@@ -39,7 +39,7 @@ class NotionMCPClient(BaseMCPClient):
         try:
             server_script = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "mcp_servers", "notion", "server.py"
+                "..", "..", "mcp/servers", "google", "vertex_ai", "server.py"
             )
             server_script = os.path.abspath(server_script)
 
@@ -61,19 +61,19 @@ class NotionMCPClient(BaseMCPClient):
             await self.session.__aenter__()
 
             init_result = await self.session.initialize()
-            logger.info(f"Notion MCP server initialized: {init_result}")
+            logger.info(f"Vertex AI MCP server initialized: {init_result}")
 
             self.connected = True
-            logger.info("Successfully connected to Notion MCP server")
+            logger.info("Successfully connected to Vertex AI MCP server")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to connect to Notion MCP server: {e}")
+            logger.error(f"Failed to connect to Vertex AI MCP server: {e}")
             await self.disconnect()
             return False
 
     async def disconnect(self) -> None:
-        """Disconnect from real Notion MCP server"""
+        """Disconnect from real Vertex AI MCP server"""
         try:
             if self.session:
                 await self.session.__aexit__(None, None, None)
@@ -86,13 +86,13 @@ class NotionMCPClient(BaseMCPClient):
             self.read_stream = None
             self.write_stream = None
             self.connected = False
-            logger.info("Disconnected from Notion MCP server")
+            logger.info("Disconnected from Vertex AI MCP server")
 
         except Exception as e:
             logger.error(f"Error during disconnection: {e}")
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute tool on real Notion MCP server"""
+        """Execute tool on real Vertex AI MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -121,7 +121,7 @@ class NotionMCPClient(BaseMCPClient):
             raise MCPToolError(f"Tool execution failed: {str(e)}")
 
     async def list_tools(self) -> List[Dict[str, Any]]:
-        """Get tools from real Notion MCP server"""
+        """Get tools from real Vertex AI MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -143,28 +143,28 @@ class NotionMCPClient(BaseMCPClient):
             raise MCPToolError(f"Failed to list tools: {str(e)}")
 
 
-def get_notion_mcp_client() -> BaseMCPClient:
-    """Factory function to get Notion MCP client"""
+def get_vertex_ai_mcp_client() -> BaseMCPClient:
+    """Factory function to get Vertex AI MCP client"""
     if not MCP_AVAILABLE:
         try:
             import mcp
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client
             logger.info("MCP library dynamically imported successfully")
-            return NotionMCPClient()
+            return VertexAIMCPClient()
         except ImportError as e:
             logger.error(f"MCP library still not available: {e}")
             raise MCPConnectionError(f"MCP library not available. Please install with: pip install mcp")
 
-    logger.info("Using real Notion MCP client")
-    return NotionMCPClient()
+    logger.info("Using real Vertex AI MCP client")
+    return VertexAIMCPClient()
 
 
-class NotionMCPService:
-    """Service layer for Notion MCP operations"""
+class VertexAIMCPService:
+    """Service layer for Vertex AI MCP operations"""
 
     def __init__(self):
-        self.client = get_notion_mcp_client()
+        self.client = get_vertex_ai_mcp_client()
         self.connected = False
 
     async def ensure_connected(self):
@@ -174,66 +174,56 @@ class NotionMCPService:
             if success:
                 self.connected = True
             else:
-                raise MCPConnectionError("Failed to connect to Notion MCP server")
+                raise MCPConnectionError("Failed to connect to Vertex AI MCP server")
 
-    async def create_page(self, parent_id: str, title: str, content: Optional[str] = None) -> Dict[str, Any]:
-        """Create a new page"""
-        await self.ensure_connected()
-        params = {
-            "parent_id": parent_id,
-            "title": title
-        }
-        if content:
-            params["content"] = content
-        return await self.client.call_tool("create_page", params)
-
-    async def get_page(self, page_id: str) -> Dict[str, Any]:
-        """Get page content"""
-        await self.ensure_connected()
-        return await self.client.call_tool("get_page", {"page_id": page_id})
-
-    async def update_page(self, page_id: str, title: Optional[str] = None) -> Dict[str, Any]:
-        """Update page properties"""
-        await self.ensure_connected()
-        params = {"page_id": page_id}
-        if title:
-            params["title"] = title
-        return await self.client.call_tool("update_page", params)
-
-    async def query_database(
+    async def generate_text(
         self,
-        database_id: str,
-        filter_obj: Optional[Dict[str, Any]] = None,
-        sorts: Optional[List[Dict[str, Any]]] = None,
-        page_size: int = 10
+        prompt: str,
+        model: str = "gemini-1.5-flash",
+        temperature: float = 0.7,
+        max_tokens: int = 1024
     ) -> Dict[str, Any]:
-        """Query a database"""
+        """Generate text using Gemini model"""
         await self.ensure_connected()
-        params = {
-            "database_id": database_id,
-            "page_size": page_size
-        }
-        if filter_obj:
-            params["filter"] = filter_obj
-        if sorts:
-            params["sorts"] = sorts
-        return await self.client.call_tool("query_database", params)
-
-    async def create_database_entry(self, database_id: str, properties: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new database entry"""
-        await self.ensure_connected()
-        return await self.client.call_tool("create_database_entry", {
-            "database_id": database_id,
-            "properties": properties
+        return await self.client.call_tool("generate_text", {
+            "prompt": prompt,
+            "model": model,
+            "temperature": temperature,
+            "max_tokens": max_tokens
         })
 
-    async def search(self, query: str, filter_obj: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Search workspace"""
+    async def chat(
+        self,
+        message: str,
+        model: str = "gemini-1.5-flash",
+        history: Optional[List[Dict[str, str]]] = None
+    ) -> Dict[str, Any]:
+        """Have a conversation with Gemini model"""
         await self.ensure_connected()
-        params = {"query": query}
-        if filter_obj:
-            params["filter"] = filter_obj
-        return await self.client.call_tool("search", params)
+        params = {
+            "message": message,
+            "model": model
+        }
+        if history:
+            params["history"] = history
+        return await self.client.call_tool("chat", params)
+
+    async def generate_embeddings(
+        self,
+        texts: List[str],
+        model: str = "text-embedding-004"
+    ) -> Dict[str, Any]:
+        """Generate text embeddings"""
+        await self.ensure_connected()
+        return await self.client.call_tool("generate_embeddings", {
+            "texts": texts,
+            "model": model
+        })
+
+    async def list_models(self) -> Dict[str, Any]:
+        """List available models"""
+        await self.ensure_connected()
+        return await self.client.call_tool("list_models", {})
 
     async def list_available_tools(self) -> List[Dict[str, Any]]:
         """List available MCP tools"""

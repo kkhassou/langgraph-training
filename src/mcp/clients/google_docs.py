@@ -19,11 +19,11 @@ except ImportError as e:
     stdio_client = None
 
 
-class VertexAIMCPClient(BaseMCPClient):
-    """Vertex AI MCP client for real MCP server communication"""
+class DocsMCPClient(BaseMCPClient):
+    """Google Docs MCP client for real MCP server communication"""
 
     def __init__(self, server_config: Optional[Dict[str, Any]] = None):
-        super().__init__("vertex_ai")
+        super().__init__("docs")
         self.server_config = server_config or {}
         self.session: Optional[ClientSession] = None
         self.stdio_transport = None
@@ -31,7 +31,7 @@ class VertexAIMCPClient(BaseMCPClient):
         self.write_stream = None
 
     async def connect(self) -> bool:
-        """Connect to real Vertex AI MCP server"""
+        """Connect to real Google Docs MCP server"""
         if not MCP_AVAILABLE:
             logger.error("MCP library not available")
             return False
@@ -39,7 +39,7 @@ class VertexAIMCPClient(BaseMCPClient):
         try:
             server_script = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "mcp_servers", "google", "vertex_ai", "server.py"
+                "..", "..", "mcp/servers", "google", "docs", "server.py"
             )
             server_script = os.path.abspath(server_script)
 
@@ -61,19 +61,19 @@ class VertexAIMCPClient(BaseMCPClient):
             await self.session.__aenter__()
 
             init_result = await self.session.initialize()
-            logger.info(f"Vertex AI MCP server initialized: {init_result}")
+            logger.info(f"Docs MCP server initialized: {init_result}")
 
             self.connected = True
-            logger.info("Successfully connected to Vertex AI MCP server")
+            logger.info("Successfully connected to Google Docs MCP server")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to connect to Vertex AI MCP server: {e}")
+            logger.error(f"Failed to connect to Docs MCP server: {e}")
             await self.disconnect()
             return False
 
     async def disconnect(self) -> None:
-        """Disconnect from real Vertex AI MCP server"""
+        """Disconnect from real Google Docs MCP server"""
         try:
             if self.session:
                 await self.session.__aexit__(None, None, None)
@@ -86,13 +86,13 @@ class VertexAIMCPClient(BaseMCPClient):
             self.read_stream = None
             self.write_stream = None
             self.connected = False
-            logger.info("Disconnected from Vertex AI MCP server")
+            logger.info("Disconnected from Docs MCP server")
 
         except Exception as e:
             logger.error(f"Error during disconnection: {e}")
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute tool on real Vertex AI MCP server"""
+        """Execute tool on real Google Docs MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -121,7 +121,7 @@ class VertexAIMCPClient(BaseMCPClient):
             raise MCPToolError(f"Tool execution failed: {str(e)}")
 
     async def list_tools(self) -> List[Dict[str, Any]]:
-        """Get tools from real Vertex AI MCP server"""
+        """Get tools from real Google Docs MCP server"""
         if not self.connected or not self.session:
             raise MCPConnectionError("Not connected to MCP server")
 
@@ -143,28 +143,28 @@ class VertexAIMCPClient(BaseMCPClient):
             raise MCPToolError(f"Failed to list tools: {str(e)}")
 
 
-def get_vertex_ai_mcp_client() -> BaseMCPClient:
-    """Factory function to get Vertex AI MCP client"""
+def get_docs_mcp_client() -> BaseMCPClient:
+    """Factory function to get Google Docs MCP client"""
     if not MCP_AVAILABLE:
         try:
             import mcp
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client
             logger.info("MCP library dynamically imported successfully")
-            return VertexAIMCPClient()
+            return DocsMCPClient()
         except ImportError as e:
             logger.error(f"MCP library still not available: {e}")
             raise MCPConnectionError(f"MCP library not available. Please install with: pip install mcp")
 
-    logger.info("Using real Vertex AI MCP client")
-    return VertexAIMCPClient()
+    logger.info("Using real Docs MCP client")
+    return DocsMCPClient()
 
 
-class VertexAIMCPService:
-    """Service layer for Vertex AI MCP operations"""
+class DocsMCPService:
+    """Service layer for Google Docs MCP operations"""
 
     def __init__(self):
-        self.client = get_vertex_ai_mcp_client()
+        self.client = get_docs_mcp_client()
         self.connected = False
 
     async def ensure_connected(self):
@@ -174,56 +174,45 @@ class VertexAIMCPService:
             if success:
                 self.connected = True
             else:
-                raise MCPConnectionError("Failed to connect to Vertex AI MCP server")
+                raise MCPConnectionError("Failed to connect to Docs MCP server")
 
-    async def generate_text(
-        self,
-        prompt: str,
-        model: str = "gemini-1.5-flash",
-        temperature: float = 0.7,
-        max_tokens: int = 1024
-    ) -> Dict[str, Any]:
-        """Generate text using Gemini model"""
+    async def create_document(self, title: str = "Untitled Document") -> Dict[str, Any]:
+        """Create a new document"""
         await self.ensure_connected()
-        return await self.client.call_tool("generate_text", {
-            "prompt": prompt,
-            "model": model,
-            "temperature": temperature,
-            "max_tokens": max_tokens
+        return await self.client.call_tool("create_document", {"title": title})
+
+    async def read_document(self, document_id: str) -> Dict[str, Any]:
+        """Read content from a document"""
+        await self.ensure_connected()
+        return await self.client.call_tool("read_document", {"document_id": document_id})
+
+    async def append_text(self, document_id: str, text: str) -> Dict[str, Any]:
+        """Append text to a document"""
+        await self.ensure_connected()
+        return await self.client.call_tool("append_text", {
+            "document_id": document_id,
+            "text": text
         })
 
-    async def chat(
-        self,
-        message: str,
-        model: str = "gemini-1.5-flash",
-        history: Optional[List[Dict[str, str]]] = None
-    ) -> Dict[str, Any]:
-        """Have a conversation with Gemini model"""
+    async def insert_text(self, document_id: str, text: str, index: int = 1) -> Dict[str, Any]:
+        """Insert text at a specific location"""
         await self.ensure_connected()
-        params = {
-            "message": message,
-            "model": model
-        }
-        if history:
-            params["history"] = history
-        return await self.client.call_tool("chat", params)
-
-    async def generate_embeddings(
-        self,
-        texts: List[str],
-        model: str = "text-embedding-004"
-    ) -> Dict[str, Any]:
-        """Generate text embeddings"""
-        await self.ensure_connected()
-        return await self.client.call_tool("generate_embeddings", {
-            "texts": texts,
-            "model": model
+        return await self.client.call_tool("insert_text", {
+            "document_id": document_id,
+            "text": text,
+            "index": index
         })
 
-    async def list_models(self) -> Dict[str, Any]:
-        """List available models"""
+    async def replace_text(self, document_id: str, find_text: str, replace_text: str,
+                          match_case: bool = False) -> Dict[str, Any]:
+        """Replace text in a document"""
         await self.ensure_connected()
-        return await self.client.call_tool("list_models", {})
+        return await self.client.call_tool("replace_text", {
+            "document_id": document_id,
+            "find_text": find_text,
+            "replace_text": replace_text,
+            "match_case": match_case
+        })
 
     async def list_available_tools(self) -> List[Dict[str, Any]]:
         """List available MCP tools"""

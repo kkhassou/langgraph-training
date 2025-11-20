@@ -2,8 +2,20 @@
 """
 Google Services Token Initialization Script
 
-This script initializes OAuth2 tokens for Google services (Gmail and Calendar).
+This script initializes OAuth2 tokens for all Google services.
 Run this script once to authenticate and generate unified google_token.json
+
+Supported services:
+- Gmail (read/send)
+- Google Calendar (read/write)
+- Google Sheets (read/write)
+- Google Docs (read/write)
+- Google Slides (read/write)
+- Google Forms (read/write)
+- Google Apps Script (projects/deployments)
+- Google Drive (file operations)
+
+Note: Google Keep API is not publicly available and is excluded.
 """
 
 import os
@@ -33,12 +45,28 @@ def main() -> int:
     from dotenv import load_dotenv
     load_dotenv()
 
-    # Unified scopes for both Gmail and Calendar
+    # All available scopes for Google services (excluding Keep - not publicly available)
     scopes = [
+        # Gmail
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/gmail.send',
+        # Calendar
         'https://www.googleapis.com/auth/calendar.readonly',
         'https://www.googleapis.com/auth/calendar.events',
+        # Sheets
+        'https://www.googleapis.com/auth/spreadsheets',
+        # Docs
+        'https://www.googleapis.com/auth/documents',
+        # Slides
+        'https://www.googleapis.com/auth/presentations',
+        # Forms
+        'https://www.googleapis.com/auth/forms.body',
+        'https://www.googleapis.com/auth/forms.responses.readonly',
+        # Apps Script
+        'https://www.googleapis.com/auth/script.projects',
+        'https://www.googleapis.com/auth/script.deployments',
+        # Drive (for file operations)
+        'https://www.googleapis.com/auth/drive.file'
     ]
 
     # Unified paths
@@ -87,7 +115,7 @@ def main() -> int:
             f.write(creds.to_json())
         logger.info("Saved token to: %s", token_path)
 
-    # Test both services
+    # Test main services
     try:
         print("\n📧 Testing Gmail API connection...")
         gmail_service = build('gmail', 'v1', credentials=creds)
@@ -111,13 +139,25 @@ def main() -> int:
             print("⚠️  No calendars found")
 
         print(f"\n✅ Google services token initialization completed successfully!")
-        print(f"Token saved to: {token_path}")
-        print("\n📝 This token can be used for both Gmail and Calendar services.")
+        print(f"📁 Token saved to: {token_path}")
+        print(f"\n📝 Token includes {len(scopes)} scopes for the following services:")
+        print("   ✓ Gmail (read/send)")
+        print("   ✓ Google Calendar (read/write events)")
+        print("   ✓ Google Sheets (read/write)")
+        print("   ✓ Google Docs (read/write)")
+        print("   ✓ Google Slides (read/write)")
+        print("   ✓ Google Forms (read/write)")
+        print("   ✓ Google Apps Script (projects/deployments)")
+        print("   ✓ Google Drive (file operations)")
+        print("\n⚠️  Note: Google Keep API is not publicly available and is excluded.")
+        print("\n💡 Make sure all required APIs are enabled in Google Cloud Console:")
+        print("   https://console.cloud.google.com/apis/library")
         
         return 0
 
     except Exception as e:
         print(f"❌ Error testing Google services: {e}")
+        logger.error(f"Full error: {e}", exc_info=True)
         return 3
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 import logging
 
-from src.services.mcp.notion import NotionMCPService
+from src.mcp.clients.notion import NotionMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)

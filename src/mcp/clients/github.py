@@ -39,7 +39,7 @@ class GitHubMCPClient(BaseMCPClient):
         try:
             server_script = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "mcp_servers", "github", "server.py"
+                "..", "..", "mcp/servers", "github", "server.py"
             )
             server_script = os.path.abspath(server_script)
 

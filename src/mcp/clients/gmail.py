@@ -40,7 +40,7 @@ class GmailMCPClient(BaseMCPClient):
             # Path to our Gmail MCP server
             server_script = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "mcp_servers", "google", "gmail", "server.py"
+                "..", "..", "mcp/servers", "google", "gmail", "server.py"
             )
             server_script = os.path.abspath(server_script)
 
