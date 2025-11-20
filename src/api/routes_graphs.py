@@ -2,13 +2,13 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 import tempfile
 import os
 
-from src.graphs.simple_chat import SimpleChatGraph, SimpleChatInput
-from src.graphs.ppt_summary import PPTSummaryGraph, PPTSummaryInput
+from src.workflows.basic import SimpleChatGraph, SimpleChatInput
+from src.workflows.basic import PPTSummaryGraph, PPTSummaryInput
 # Temporarily disabled due to MCP dependency issue
-# from src.graphs.slack_report import SlackReportGraph, SlackReportInput
-from src.graphs.rag_workflow import RAGWorkflow, RAGWorkflowInput
-from src.patterns.reflection import ReflectionGraph, ReflectionInput
-from src.patterns.chain_of_thought import ChainOfThoughtGraph, ChainOfThoughtInput
+# from src.workflows.basic import SlackReportGraph, SlackReportInput
+from src.workflows.rag import RAGWorkflow, RAGWorkflowInput
+from src.workflows.patterns import ReflectionGraph, ReflectionInput
+from src.workflows.patterns import ChainOfThoughtGraph, ChainOfThoughtInput
 
 router = APIRouter(prefix="/graphs", tags=["graphs"])
 

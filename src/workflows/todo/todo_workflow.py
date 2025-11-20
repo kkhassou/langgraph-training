@@ -13,9 +13,9 @@ from langgraph.graph import StateGraph, END
 import logging
 import asyncio
 
-from src.nodes.workflows.todo_parser import todo_parser_node
-from src.nodes.workflows.todo_advisor import todo_advisor_node
-from src.nodes.workflows.email_composer import email_composer_node
+from src.nodes.todo.todo_parser import todo_parser_node
+from src.nodes.todo.todo_advisor import todo_advisor_node
+from src.nodes.todo.email_composer import email_composer_node
 from src.services.mcp.gmail import GmailMCPService
 
 logger = logging.getLogger(__name__)

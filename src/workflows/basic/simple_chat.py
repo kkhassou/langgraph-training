@@ -62,26 +62,22 @@ class SimpleChatGraph:
             result = await self.graph.ainvoke(initial_state)
 
             # Extract response from final state
-            # LangGraph returns the final state, which should be a NodeState
-            final_state = result
-
-            # If result is a dictionary (node outputs), get the final node state
+            # LangGraph returns a dict representation of NodeState
+            # Handle both dict and NodeState formats
             if isinstance(result, dict):
-                # Try to get the gemini node result if it exists
-                if "gemini" in result:
-                    final_state = result["gemini"]
-                else:
-                    # Otherwise, take the last available state
-                    final_state = list(result.values())[-1] if result else initial_state
+                result_data = result.get("data", {})
+            else:
+                result_data = result.data if hasattr(result, "data") else {}
 
-            if "error" in final_state.data:
+            # Check for errors
+            if "error" in result_data:
                 return SimpleChatOutput(
                     response="",
                     success=False,
-                    error_message=final_state.data["error"]
+                    error_message=result_data["error"]
                 )
 
-            response = final_state.data.get("llm_response", "No response generated")
+            response = result_data.get("llm_response", "No response generated")
 
             return SimpleChatOutput(
                 response=response,
@@ -109,3 +105,4 @@ graph TD
     class A,C startEnd
     class B llm
         """
+

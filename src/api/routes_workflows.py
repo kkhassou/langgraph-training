@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
 import logging
 
-from src.workflows.todo_workflow import run_todo_workflow
+from src.workflows.todo import run_todo_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ async def preview_todo_workflow(input_data: TodoWorkflowInput):
     try:
         logger.info(f"Previewing TODO workflow for sender: {input_data.sender}")
 
-        from src.workflows.todo_workflow import (
+        from src.workflows.todo import (
             parse_todos_step,
             advise_todos_step,
             compose_email_step
