@@ -36,6 +36,8 @@ from src.core.config import settings
 # コンテキスト変数（リクエストIDなどの追跡用）
 request_id_var: ContextVar[Optional[str]] = ContextVar('request_id', default=None)
 user_id_var: ContextVar[Optional[str]] = ContextVar('user_id', default=None)
+workflow_id_var: ContextVar[Optional[str]] = ContextVar('workflow_id', default=None)
+node_id_var: ContextVar[Optional[str]] = ContextVar('node_id', default=None)
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -79,6 +81,16 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         if user_id:
             log_record['user_id'] = user_id
         
+        # ワークフローID（コンテキストから取得）
+        workflow_id = workflow_id_var.get()
+        if workflow_id:
+            log_record['workflow_id'] = workflow_id
+        
+        # ノードID（コンテキストから取得）
+        node_id = node_id_var.get()
+        if node_id:
+            log_record['node_id'] = node_id
+        
         # 環境情報
         log_record['environment'] = settings.environment
         log_record['app_name'] = settings.app_name
@@ -91,6 +103,8 @@ class ContextFilter(logging.Filter):
         """ログレコードにコンテキスト情報を追加"""
         record.request_id = request_id_var.get()
         record.user_id = user_id_var.get()
+        record.workflow_id = workflow_id_var.get()
+        record.node_id = node_id_var.get()
         return True
 
 
@@ -233,6 +247,49 @@ def clear_user_id() -> None:
     user_id_var.set(None)
 
 
+def set_workflow_id(workflow_id: Optional[str] = None) -> str:
+    """ワークフローIDを設定
+    
+    Args:
+        workflow_id: ワークフローID（省略時は自動生成）
+    
+    Returns:
+        設定されたワークフローID
+    
+    Example:
+        >>> workflow_id = set_workflow_id()
+        >>> logger.info("Workflow started")  # workflow_idが自動的に含まれる
+    """
+    if workflow_id is None:
+        workflow_id = str(uuid.uuid4())
+    
+    workflow_id_var.set(workflow_id)
+    return workflow_id
+
+
+def clear_workflow_id() -> None:
+    """ワークフローIDをクリア"""
+    workflow_id_var.set(None)
+
+
+def set_node_id(node_id: str) -> None:
+    """ノードIDを設定
+    
+    Args:
+        node_id: ノードID
+    
+    Example:
+        >>> set_node_id("llm_node")
+        >>> logger.info("Node executing")  # node_idが自動的に含まれる
+    """
+    node_id_var.set(node_id)
+
+
+def clear_node_id() -> None:
+    """ノードIDをクリア"""
+    node_id_var.set(None)
+
+
 class LogContext:
     """ログコンテキストマネージャー
     
@@ -373,6 +430,206 @@ def log_function_call(logger: logging.Logger):
     return decorator
 
 
+class StructuredLogger:
+    """構造化ロギングの高レベルラッパー
+    
+    ワークフロー、ノード、プロバイダーのロギングを簡単にするためのクラス。
+    自動的にコンテキスト情報を含め、イベントタイプごとに適切なログを記録します。
+    
+    Example:
+        >>> logger = StructuredLogger(__name__)
+        >>> 
+        >>> # ワークフロー開始
+        >>> logger.workflow_start("chat_workflow", {"message": "Hello"})
+        >>> 
+        >>> # ノード実行
+        >>> logger.node_execute("llm_node", "LLMNode", 0.523)
+        >>> 
+        >>> # ワークフロー完了
+        >>> logger.workflow_end("chat_workflow", 1.234, success=True)
+    """
+    
+    def __init__(self, name: str):
+        """
+        Args:
+            name: ロガー名（通常は__name__）
+        """
+        self.logger = get_logger(name)
+    
+    def _add_context(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """コンテキスト情報を追加"""
+        context = {
+            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            **data
+        }
+        
+        # コンテキスト変数から取得
+        request_id = request_id_var.get()
+        if request_id:
+            context["request_id"] = request_id
+        
+        user_id = user_id_var.get()
+        if user_id:
+            context["user_id"] = user_id
+        
+        workflow_id = workflow_id_var.get()
+        if workflow_id:
+            context["workflow_id"] = workflow_id
+        
+        node_id = node_id_var.get()
+        if node_id:
+            context["node_id"] = node_id
+        
+        return context
+    
+    def info(self, message: str, **kwargs):
+        """INFOレベルログ"""
+        self.logger.info(message, extra=self._add_context(kwargs))
+    
+    def warning(self, message: str, **kwargs):
+        """WARNINGレベルログ"""
+        self.logger.warning(message, extra=self._add_context(kwargs))
+    
+    def error(self, message: str, exc_info=None, **kwargs):
+        """ERRORレベルログ"""
+        self.logger.error(message, extra=self._add_context(kwargs), exc_info=exc_info)
+    
+    def debug(self, message: str, **kwargs):
+        """DEBUGレベルログ"""
+        self.logger.debug(message, extra=self._add_context(kwargs))
+    
+    def workflow_start(self, workflow_name: str, input_data: Dict[str, Any]):
+        """ワークフロー開始ログ
+        
+        Args:
+            workflow_name: ワークフロー名
+            input_data: 入力データ（キーのみ記録）
+        
+        Example:
+            >>> logger.workflow_start("chat_workflow", {"message": "Hello"})
+        """
+        self.info(
+            f"Workflow started: {workflow_name}",
+            event_type="workflow_start",
+            workflow_name=workflow_name,
+            input_keys=list(input_data.keys()) if isinstance(input_data, dict) else []
+        )
+    
+    def workflow_end(self, workflow_name: str, duration: float, success: bool, error: Optional[str] = None):
+        """ワークフロー完了ログ
+        
+        Args:
+            workflow_name: ワークフロー名
+            duration: 実行時間（秒）
+            success: 成功したかどうか
+            error: エラーメッセージ（失敗時）
+        
+        Example:
+            >>> logger.workflow_end("chat_workflow", 1.234, success=True)
+        """
+        if success:
+            self.info(
+                f"Workflow completed: {workflow_name}",
+                event_type="workflow_end",
+                workflow_name=workflow_name,
+                duration_seconds=duration,
+                duration_ms=duration * 1000,
+                success=success
+            )
+        else:
+            self.error(
+                f"Workflow failed: {workflow_name}",
+                event_type="workflow_end",
+                workflow_name=workflow_name,
+                duration_seconds=duration,
+                duration_ms=duration * 1000,
+                success=success,
+                error=error
+            )
+    
+    def node_execute(self, node_name: str, node_type: str, duration: float, success: bool = True):
+        """ノード実行ログ
+        
+        Args:
+            node_name: ノード名
+            node_type: ノードタイプ
+            duration: 実行時間（秒）
+            success: 成功したかどうか
+        
+        Example:
+            >>> logger.node_execute("llm_node", "LLMNode", 0.523)
+        """
+        self.info(
+            f"Node executed: {node_name}",
+            event_type="node_execute",
+            node_name=node_name,
+            node_type=node_type,
+            duration_seconds=duration,
+            duration_ms=duration * 1000,
+            success=success
+        )
+    
+    def provider_call(self, provider_name: str, method: str, duration: float, success: bool = True):
+        """プロバイダー呼び出しログ
+        
+        Args:
+            provider_name: プロバイダー名
+            method: メソッド名
+            duration: 実行時間（秒）
+            success: 成功したかどうか
+        
+        Example:
+            >>> logger.provider_call("GeminiProvider", "generate", 0.823)
+        """
+        self.info(
+            f"Provider call: {provider_name}.{method}",
+            event_type="provider_call",
+            provider_name=provider_name,
+            method=method,
+            duration_seconds=duration,
+            duration_ms=duration * 1000,
+            success=success
+        )
+    
+    def api_request(self, method: str, path: str, status_code: int, duration: float):
+        """APIリクエストログ
+        
+        Args:
+            method: HTTPメソッド
+            path: パス
+            status_code: ステータスコード
+            duration: 実行時間（秒）
+        
+        Example:
+            >>> logger.api_request("POST", "/workflows/chat", 200, 1.234)
+        """
+        self.info(
+            f"API request: {method} {path}",
+            event_type="api_request",
+            http_method=method,
+            path=path,
+            status_code=status_code,
+            duration_seconds=duration,
+            duration_ms=duration * 1000
+        )
+
+
+def get_structured_logger(name: str) -> StructuredLogger:
+    """構造化ロガーを取得
+    
+    Args:
+        name: ロガー名（通常は__name__）
+    
+    Returns:
+        StructuredLogger: 構造化ロガーインスタンス
+    
+    Example:
+        >>> logger = get_structured_logger(__name__)
+        >>> logger.workflow_start("my_workflow", {"input": "data"})
+    """
+    return StructuredLogger(name)
+
+
 if __name__ == "__main__":
     # テスト実行
     setup_logging()
@@ -385,4 +642,10 @@ if __name__ == "__main__":
         logger.info("Message with context")
     
     logger.info("Message after context")
+    
+    # 構造化ロガーのテスト
+    structured_logger = get_structured_logger(__name__)
+    structured_logger.workflow_start("test_workflow", {"message": "test"})
+    structured_logger.node_execute("test_node", "TestNode", 0.5)
+    structured_logger.workflow_end("test_workflow", 1.0, success=True)
 

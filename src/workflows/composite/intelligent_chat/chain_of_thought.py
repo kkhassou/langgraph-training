@@ -8,11 +8,18 @@ Chain of Thought Composite Workflow - 段階的推論
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 import logging
+import time
 
 from src.workflows.atomic.chat import ChatWorkflow, ChatInput
 from src.core.providers.llm import LLMProvider
+from src.core.logging_config import (
+    get_structured_logger,
+    set_workflow_id,
+    clear_workflow_id
+)
 
 logger = logging.getLogger(__name__)
+structured_logger = get_structured_logger(__name__)
 
 
 class ChainOfThoughtInput(BaseModel):
@@ -65,7 +72,20 @@ class ChainOfThoughtWorkflow:
         Returns:
             ChainOfThoughtOutput: 段階的推論の結果
         """
+        # ワークフローIDを設定
+        workflow_id = set_workflow_id()
+        start_time = time.time()
+        
         try:
+            # 構造化ロギング: ワークフロー開始
+            structured_logger.workflow_start(
+                "ChainOfThoughtWorkflow",
+                {
+                    "question_length": len(input_data.question),
+                    "steps": input_data.steps
+                }
+            )
+            
             logger.info(f"Starting Chain of Thought workflow: {input_data.question[:50]}...")
 
             reasoning_steps = []
@@ -138,6 +158,14 @@ class ChainOfThoughtWorkflow:
                 )
 
             logger.info(f"Chain of Thought completed with {len(reasoning_steps)} steps")
+            
+            # 構造化ロギング: ワークフロー完了
+            duration = time.time() - start_time
+            structured_logger.workflow_end(
+                "ChainOfThoughtWorkflow",
+                duration,
+                success=True
+            )
 
             return ChainOfThoughtOutput(
                 final_answer=final_result.response,
@@ -147,11 +175,24 @@ class ChainOfThoughtWorkflow:
 
         except Exception as e:
             logger.error(f"Error in Chain of Thought workflow: {e}")
+            
+            # 構造化ロギング: ワークフロー失敗
+            duration = time.time() - start_time
+            structured_logger.workflow_end(
+                "ChainOfThoughtWorkflow",
+                duration,
+                success=False,
+                error=str(e)
+            )
+            
             return ChainOfThoughtOutput(
                 final_answer="",
                 reasoning_steps=[],
                 success=False,
                 error_message=str(e)
             )
+        finally:
+            # ワークフローIDをクリア
+            clear_workflow_id()
 
 

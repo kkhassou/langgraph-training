@@ -2,6 +2,7 @@
 
 from typing import Optional
 import logging
+import time
 
 from src.nodes.base import BaseNode, NodeState, NodeInput, NodeOutput
 from src.core.providers.llm import LLMProvider
@@ -12,8 +13,14 @@ from src.core.exceptions import (
     NodeInputValidationError,
     LLMProviderError
 )
+from src.core.logging_config import (
+    get_structured_logger,
+    set_node_id,
+    clear_node_id
+)
 
 logger = logging.getLogger(__name__)
+structured_logger = get_structured_logger(__name__)
 
 
 class LLMNode(BaseNode):
@@ -51,6 +58,10 @@ class LLMNode(BaseNode):
             NodeInputValidationError: 入力が不正な場合
             NodeExecutionError: ノードの実行に失敗した場合
         """
+        # ノードIDを設定
+        set_node_id(self.name)
+        start_time = time.time()
+        
         try:
             # プロンプトを取得
             if state.messages:
@@ -74,10 +85,20 @@ class LLMNode(BaseNode):
 
             # ✅ プロバイダーを通じて生成
             logger.info(f"Generating with {self.provider.__class__.__name__}")
+            provider_start_time = time.time()
             response_text = await self.provider.generate(
                 prompt=prompt,
                 temperature=temperature,
                 max_tokens=max_tokens
+            )
+            provider_duration = time.time() - provider_start_time
+            
+            # 構造化ロギング: プロバイダー呼び出し
+            structured_logger.provider_call(
+                self.provider.__class__.__name__,
+                "generate",
+                provider_duration,
+                success=True
             )
 
             # 状態を更新
@@ -85,12 +106,35 @@ class LLMNode(BaseNode):
             state.data["llm_response"] = response_text
             state.metadata["node"] = self.name
             state.metadata["provider"] = self.provider.__class__.__name__
+            
+            # 構造化ロギング: ノード実行完了
+            duration = time.time() - start_time
+            structured_logger.node_execute(
+                self.name,
+                self.__class__.__name__,
+                duration,
+                success=True
+            )
 
             return state
 
-        except NodeInputValidationError:
+        except NodeInputValidationError as e:
+            duration = time.time() - start_time
+            structured_logger.node_execute(
+                self.name,
+                self.__class__.__name__,
+                duration,
+                success=False
+            )
             raise
         except LLMProviderError as e:
+            duration = time.time() - start_time
+            structured_logger.node_execute(
+                self.name,
+                self.__class__.__name__,
+                duration,
+                success=False
+            )
             # Provider層からの例外は詳細情報を保持してNodeErrorとして再throw
             raise NodeExecutionError(
                 f"LLM provider error in node {self.name}",
@@ -102,7 +146,14 @@ class LLMNode(BaseNode):
                 original_error=e
             )
         except Exception as e:
+            duration = time.time() - start_time
             logger.error(f"Unexpected error in LLM node {self.name}: {e}")
+            structured_logger.node_execute(
+                self.name,
+                self.__class__.__name__,
+                duration,
+                success=False
+            )
             raise NodeExecutionError(
                 f"Unexpected error in LLM node {self.name}",
                 details={
@@ -112,6 +163,9 @@ class LLMNode(BaseNode):
                 },
                 original_error=e
             )
+        finally:
+            # ノードIDをクリア
+            clear_node_id()
 
 
 # ✅ 後方互換性のためのエイリアス

@@ -1,10 +1,87 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
+import time
 
 from src.core.config import settings
+from src.core.logging_config import (
+    setup_logging,
+    get_structured_logger,
+    set_request_id,
+    clear_request_id
+)
 from src.api import routes_nodes, routes_workflows, routes_slack_webhook, routes_slack_commands
+
+# ロギング設定を初期化
+setup_logging()
+structured_logger = get_structured_logger(__name__)
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    """構造化ロギングミドルウェア
+    
+    すべてのリクエストに対して：
+    - リクエストIDを自動生成
+    - リクエスト/レスポンス時間を計測
+    - 構造化ログを記録
+    """
+    
+    async def dispatch(self, request: Request, call_next):
+        # リクエストIDを生成・設定
+        request_id = set_request_id()
+        
+        # 開始時間
+        start_time = time.time()
+        
+        # リクエストログ
+        structured_logger.info(
+            f"Request started: {request.method} {request.url.path}",
+            event_type="request_start",
+            http_method=request.method,
+            path=request.url.path,
+            query_params=str(request.query_params),
+            client_host=request.client.host if request.client else "unknown"
+        )
+        
+        try:
+            # リクエストを処理
+            response = await call_next(request)
+            
+            # レスポンス時間を計測
+            duration = time.time() - start_time
+            
+            # レスポンスログ
+            structured_logger.api_request(
+                request.method,
+                request.url.path,
+                response.status_code,
+                duration
+            )
+            
+            # レスポンスヘッダーにリクエストIDを追加
+            response.headers["X-Request-ID"] = request_id
+            
+            return response
+            
+        except Exception as e:
+            # エラーログ
+            duration = time.time() - start_time
+            structured_logger.error(
+                f"Request failed: {request.method} {request.url.path}",
+                event_type="request_error",
+                http_method=request.method,
+                path=request.url.path,
+                duration_seconds=duration,
+                error=str(e),
+                error_type=type(e).__name__,
+                exc_info=True
+            )
+            raise
+        finally:
+            # リクエストIDをクリア
+            clear_request_id()
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -41,6 +118,9 @@ app = FastAPI(
         "email": "training@example.com",
     }
 )
+
+# ロギングミドルウェアを追加（最初に追加）
+app.add_middleware(LoggingMiddleware)
 
 # Add CORS middleware
 app.add_middleware(
