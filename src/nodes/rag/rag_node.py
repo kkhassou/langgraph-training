@@ -1,10 +1,14 @@
-"""RAG Node - シンプルな検索拡張生成ノード"""
+"""RAG Node - プロバイダー注入可能なRAGノード"""
 
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
+import logging
 
 from src.nodes.base import BaseNode, NodeState, NodeInput, NodeOutput
-from src.services.rag.rag_service import RAGService
+from src.core.providers.rag import RAGProvider
+from src.providers.rag.simple import SimpleRAGProvider
+
+logger = logging.getLogger(__name__)
 
 
 class RAGInput(NodeInput):
@@ -31,18 +35,35 @@ class RAGOutput(NodeOutput):
 class RAGNode(BaseNode):
     """RAG (Retrieval-Augmented Generation) Node
     
-    シンプルなOrchestrationのみ - 実際の処理はRAGServiceに委譲
+    依存性注入パターンを使用し、任意のRAGProviderを注入できます。
+    これにより、テスト時のモック化や、異なるRAG実装への切り替えが容易になります。
+    
+    Example:
+        >>> from src.providers.rag.simple import SimpleRAGProvider
+        >>> provider = SimpleRAGProvider()
+        >>> node = RAGNode(provider=provider)
+        >>> result = await node.execute(state)
     """
 
-    def __init__(self):
-        super().__init__(
-            name="rag_node",
-            description="Retrieve relevant documents and generate augmented response"
-        )
-        self.rag_service = RAGService()
+    def __init__(
+        self,
+        provider: Optional[RAGProvider] = None,
+        name: str = "rag_node",
+        description: str = "Retrieve relevant documents and generate augmented response"
+    ):
+        """
+        Args:
+            provider: RAGプロバイダー実装（省略時はSimpleRAGProvider）
+            name: ノード名
+            description: ノードの説明
+        """
+        super().__init__(name=name, description=description)
+        # プロバイダーが指定されていない場合はデフォルトを使用
+        self.provider = provider or SimpleRAGProvider()
+        logger.info(f"RAGNode initialized with {self.provider.__class__.__name__}")
 
     async def execute(self, state: NodeState) -> NodeState:
-        """Execute RAG workflow - サービスに委譲"""
+        """Execute RAG workflow - プロバイダーに委譲"""
         try:
             # パラメータを取得
             query = state.data.get("query", "")
@@ -54,8 +75,9 @@ class RAGNode(BaseNode):
                 state.data["error"] = "Query is required for RAG"
                 return state
 
-            # ✅ RAGServiceに全ての処理を委譲（たった1行！）
-            result = await self.rag_service.query(
+            # ✅ RAGProviderに全ての処理を委譲
+            logger.info(f"Executing RAG with {self.provider.__class__.__name__}")
+            result = await self.provider.query(
                 query=query,
                 collection_name=collection_name,
                 top_k=top_k,
@@ -71,25 +93,33 @@ class RAGNode(BaseNode):
             })
 
             state.metadata["node"] = self.name
+            state.metadata["provider"] = self.provider.__class__.__name__
             state.metadata["documents_retrieved"] = len(result.retrieved_documents)
 
             return state
 
         except Exception as e:
+            logger.error(f"Error in RAG node: {e}")
             state.data["error"] = f"RAG execution failed: {str(e)}"
             state.metadata["error_node"] = self.name
             return state
 
 
-async def rag_node_handler(input_data: RAGInput) -> RAGOutput:
-    """Standalone handler for RAG node API endpoint"""
+async def rag_node_handler(input_data: RAGInput, provider: Optional[RAGProvider] = None) -> RAGOutput:
+    """Standalone handler for RAG node API endpoint
+    
+    Args:
+        input_data: 入力データ
+        provider: RAGプロバイダー（省略時はSimpleRAGProvider）
+    """
     try:
-        node = RAGNode()
+        node = RAGNode(provider=provider)
         state = NodeState()
         state.data = {
             "query": input_data.query,
             "collection_name": input_data.collection_name,
-            "top_k": input_data.top_k
+            "top_k": input_data.top_k,
+            "include_metadata": input_data.include_metadata
         }
 
         result_state = await node.execute(state)

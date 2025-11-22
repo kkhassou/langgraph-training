@@ -1,11 +1,14 @@
+"""RAG Node - プロバイダー注入可能なRAGノード（シンプル版）"""
+
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
+import logging
+
 from src.nodes.base import BaseNode, NodeState, NodeInput, NodeOutput
-from src.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
-from src.infrastructure.vector_stores.supabase import SupabaseVectorStore, Document
-from src.infrastructure.vector_stores.local import LocalVectorStore
-from src.services.llm.gemini_service import GeminiService
-from src.core.config import settings
+from src.core.providers.rag import RAGProvider
+from src.providers.rag.simple import SimpleRAGProvider
+
+logger = logging.getLogger(__name__)
 
 
 class RAGInput(NodeInput):
@@ -30,119 +33,94 @@ class RAGOutput(NodeOutput):
 
 
 class RAGNode(BaseNode):
-    """RAG (Retrieval-Augmented Generation) Node"""
+    """RAG (Retrieval-Augmented Generation) Node
+    
+    依存性注入パターンを使用し、任意のRAGProviderを注入できます。
+    これにより、テスト時のモック化や、異なるRAG実装への切り替えが容易になります。
+    
+    Example:
+        >>> from src.providers.rag.simple import SimpleRAGProvider
+        >>> provider = SimpleRAGProvider()
+        >>> node = RAGNode(provider=provider)
+        >>> result = await node.execute(state)
+    """
 
-    def __init__(self):
-        super().__init__(
-            name="rag_node",
-            description="Retrieve relevant documents and generate augmented response"
-        )
-        self.embedding_provider = None
-        self.vector_store = None
-
-    def _initialize_components(self):
-        """Initialize RAG components lazily"""
-        if self.embedding_provider is None:
-            self.embedding_provider = GeminiEmbeddingProvider(
-                model_name=settings.gemini_embedding_model,
-                dimension=settings.embedding_dimension
-            )
-
-        if self.vector_store is None:
-            # Try Supabase first, fallback to local store
-            try:
-                if settings.supabase_url and settings.supabase_key:
-                    self.vector_store = SupabaseVectorStore(
-                        dimension=settings.embedding_dimension
-                    )
-                    print("Using Supabase vector store")
-                else:
-                    raise ValueError("Supabase credentials not configured")
-            except Exception as e:
-                print(f"Supabase initialization failed: {str(e)}")
-                print("Falling back to local vector store")
-                self.vector_store = LocalVectorStore(
-                    dimension=settings.embedding_dimension
-                )
-                print("Using local vector store")
+    def __init__(
+        self,
+        provider: Optional[RAGProvider] = None,
+        name: str = "rag_node",
+        description: str = "Retrieve relevant documents and generate augmented response"
+    ):
+        """
+        Args:
+            provider: RAGプロバイダー実装（省略時はSimpleRAGProvider）
+            name: ノード名
+            description: ノードの説明
+        """
+        super().__init__(name=name, description=description)
+        # プロバイダーが指定されていない場合はデフォルトを使用
+        self.provider = provider or SimpleRAGProvider()
+        logger.info(f"RAGNode initialized with {self.provider.__class__.__name__}")
 
     async def execute(self, state: NodeState) -> NodeState:
-        """Execute RAG workflow"""
+        """Execute RAG workflow - プロバイダーに委譲"""
         try:
-            self._initialize_components()
-
-            # Get query from state
+            # パラメータを取得
             query = state.data.get("query", "")
             collection_name = state.data.get("collection_name", "default_collection")
             top_k = state.data.get("top_k", 5)
+            include_metadata = state.data.get("include_metadata", True)
 
             if not query:
                 state.data["error"] = "Query is required for RAG"
                 return state
 
-            # Step 1: Generate query embedding
-            query_embedding = await self.embedding_provider.embed_query(query)
-
-            # Step 2: Retrieve relevant documents
-            search_results = await self.vector_store.search(
+            # ✅ RAGProviderに全ての処理を委譲
+            logger.info(f"Executing RAG with {self.provider.__class__.__name__}")
+            result = await self.provider.query(
+                query=query,
                 collection_name=collection_name,
-                query_embedding=query_embedding,
-                top_k=top_k
+                top_k=top_k,
+                include_embedding=include_metadata
             )
 
-            # Step 3: Prepare context from retrieved documents
-            context_parts = []
-            retrieved_docs = []
-
-            for result in search_results:
-                context_parts.append(f"Document {result.rank + 1}: {result.document.content}")
-                retrieved_docs.append({
-                    "id": result.document.id,
-                    "content": result.document.content,
-                    "metadata": result.document.metadata,
-                    "score": result.score,
-                    "rank": result.rank
-                })
-
-            context = "\n\n".join(context_parts)
-
-            # Step 4: Generate response using LLM with context
-            # ✅ GeminiServiceを使ってシンプルに呼び出し
-            llm_response = await GeminiService.generate_with_context(
-                user_query=query,
-                context=context,
-                system_instruction="あなたは質問応答システムです。以下のコンテキスト情報を参考にして、ユーザーの質問に答えてください。"
-            )
-
-            # Update state with results
+            # 結果をstateに格納
             state.data.update({
-                "rag_answer": llm_response,
-                "retrieved_documents": retrieved_docs,
-                "query_embedding": query_embedding,
-                "context_used": context
+                "rag_answer": result.answer,
+                "retrieved_documents": result.retrieved_documents,
+                "query_embedding": result.query_embedding,
+                "context_used": result.context_used
             })
 
             state.metadata["node"] = self.name
-            state.metadata["documents_retrieved"] = len(retrieved_docs)
+            state.metadata["provider"] = self.provider.__class__.__name__
+            state.metadata["documents_retrieved"] = len(result.retrieved_documents)
 
             return state
 
         except Exception as e:
+            logger.error(f"Error in RAG node: {e}")
             state.data["error"] = f"RAG execution failed: {str(e)}"
             state.metadata["error_node"] = self.name
             return state
 
 
 
-async def rag_node_handler(input_data: RAGInput) -> RAGOutput:
-    """Standalone handler for RAG node API endpoint"""
+async def rag_node_handler(input_data: RAGInput, provider: Optional[RAGProvider] = None) -> RAGOutput:
+    """Standalone handler for RAG node API endpoint
+    
+    Args:
+        input_data: 入力データ
+        provider: RAGプロバイダー（省略時はSimpleRAGProvider）
+    """
     try:
-        node = RAGNode()
+        node = RAGNode(provider=provider)
         state = NodeState()
         state.data = {
             "query": input_data.query,
             "collection_name": input_data.collection_name,
-            "top_k": input_data.top_k
+            "top_k": input_data.top_k,
+            "include_metadata": input_data.include_metadata
         }
 
         result_state = await node.execute(state)

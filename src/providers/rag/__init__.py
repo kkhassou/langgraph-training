@@ -1,6 +1,10 @@
 """RAG Provider Implementations"""
 
-__all__ = []
+from src.providers.rag.simple import SimpleRAGProvider
+
+__all__ = [
+    "SimpleRAGProvider",
+]
 
 
 
