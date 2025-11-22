@@ -110,18 +110,6 @@ class Container(containers.DeclarativeContainer):
         provider=llm_provider
     )
     
-    # TodoAdvisorNode
-    todo_advisor_node = providers.Factory(
-        lambda provider: _create_todo_advisor_node(provider),
-        provider=llm_provider
-    )
-    
-    # TodoParserNode
-    todo_parser_node = providers.Factory(
-        lambda provider: _create_todo_parser_node(provider),
-        provider=llm_provider
-    )
-    
     # ============================================================================
     # Workflow Layer
     # ============================================================================
@@ -155,20 +143,8 @@ class Container(containers.DeclarativeContainer):
 
 def _create_llm_node(provider: LLMProvider, name: str):
     """LLMNodeを作成（循環importを避けるため遅延import）"""
-    from src.nodes.primitives.llm.gemini.node import LLMNode
+    from src.nodes.blocks.llm import LLMNode
     return LLMNode(provider=provider, name=name)
-
-
-def _create_todo_advisor_node(provider: LLMProvider):
-    """TodoAdvisorNodeを作成"""
-    from src.nodes.composites.todo.advisor.node import TodoAdvisorNode
-    return TodoAdvisorNode(provider=provider)
-
-
-def _create_todo_parser_node(provider: LLMProvider):
-    """TodoParserNodeを作成"""
-    from src.nodes.composites.todo.parser.node import TodoParserNode
-    return TodoParserNode(provider=provider)
 
 
 def _create_chat_workflow(provider: LLMProvider):

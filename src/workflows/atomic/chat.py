@@ -12,7 +12,7 @@ import logging
 import time
 
 from src.nodes.base import NodeState
-from src.nodes.primitives.llm.gemini.node import LLMNode
+from src.nodes.blocks.llm import LLMNode
 from src.core.providers.llm import LLMProvider
 from src.providers.llm.gemini import GeminiProvider
 from src.core.config import settings

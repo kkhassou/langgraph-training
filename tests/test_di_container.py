@@ -124,8 +124,8 @@ class TestDIContainer:
             'mock': {'responses': {}}
         })
         
-        # TodoAdvisorNodeを作成
-        node = container.todo_advisor_node()
+        # LLMNodeを作成
+        node = container.llm_node()
         assert node is not None
         assert hasattr(node, 'provider')
         assert isinstance(node.provider, MockLLMProvider)

@@ -12,7 +12,7 @@ from langgraph.graph import StateGraph, START, END
 import logging
 
 from src.nodes.base import NodeState
-from src.nodes.primitives.rag.simple.node import RAGNode
+from src.nodes.blocks.retrieval import RetrievalNode as RAGNode
 from src.core.providers.rag import RAGProvider
 from src.providers.rag.simple import SimpleRAGProvider
 

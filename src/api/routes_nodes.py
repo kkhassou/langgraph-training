@@ -1,24 +1,27 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import Dict, Any
 
-from src.nodes.llm.gemini import GeminiInput, gemini_node_handler
-from src.nodes.document.ppt_ingest import ppt_ingest_handler
-from src.nodes.integrations.slack import SlackInput, slack_node_handler
-from src.nodes.integrations.notion import NotionInput, notion_node_handler
-from src.nodes.integrations.github import GitHubInput, github_node_handler
-from src.nodes.integrations.google.gmail import GmailInput, gmail_node_handler
-from src.nodes.integrations.google.calendar import GoogleCalendarInput, calendar_node_handler
-from src.nodes.integrations.google.sheets import GoogleSheetsInput, sheets_node_handler
-from src.nodes.integrations.google.docs import GoogleDocsInput, docs_node_handler
-from src.nodes.integrations.google.slides import GoogleSlidesInput, slides_node_handler
-from src.nodes.integrations.google.forms import GoogleFormsInput, forms_node_handler
-from src.nodes.integrations.google.keep import GoogleKeepInput, keep_node_handler
-from src.nodes.integrations.google.apps_script import GoogleAppsScriptInput, apps_script_node_handler
-from src.nodes.integrations.google.vertex_ai import VertexAiInput, vertex_ai_node_handler
-from src.nodes.rag.rag_node import RAGInput, rag_node_handler
-from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
-from src.nodes.rag.search_node import SearchInput, search_node_handler
-from src.nodes.rag.advanced_rag_node import AdvancedRAGInput, advanced_rag_handler
+# ✅ 新しい構造からのインポート
+from src.nodes.blocks.llm import LLMInput, llm_node_handler
+from src.nodes.io.loader import LoaderInput, ppt_ingest_handler
+from src.nodes.tools.slack import SlackInput, slack_node_handler
+from src.nodes.blocks.retrieval import RetrievalInput, retrieval_node_handler
+
+# ⚠️ 以下の統合は現在リファクタリング中または削除されました
+# from src.nodes.integrations.notion import NotionInput, notion_node_handler
+# from src.nodes.integrations.github import GitHubInput, github_node_handler
+# from src.nodes.integrations.google.gmail import GmailInput, gmail_node_handler
+# from src.nodes.integrations.google.calendar import GoogleCalendarInput, calendar_node_handler
+# from src.nodes.integrations.google.sheets import GoogleSheetsInput, sheets_node_handler
+# from src.nodes.integrations.google.docs import GoogleDocsInput, docs_node_handler
+# from src.nodes.integrations.google.slides import GoogleSlidesInput, slides_node_handler
+# from src.nodes.integrations.google.forms import GoogleFormsInput, forms_node_handler
+# from src.nodes.integrations.google.keep import GoogleKeepInput, keep_node_handler
+# from src.nodes.integrations.google.apps_script import GoogleAppsScriptInput, apps_script_node_handler
+# from src.nodes.integrations.google.vertex_ai import VertexAiInput, vertex_ai_node_handler
+# from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
+# from src.nodes.rag.search_node import SearchInput, search_node_handler
+# from src.nodes.rag.advanced_rag_node import AdvancedRAGInput, advanced_rag_handler
 
 
 router = APIRouter(prefix="/nodes", tags=["nodes"])
@@ -30,9 +33,9 @@ async def list_nodes():
     return {
         "nodes": [
             {
-                "name": "gemini",
-                "description": "Generate responses using Google Gemini LLM",
-                "endpoint": "/nodes/gemini",
+                "name": "llm",
+                "description": "Generate responses using LLM (Generic)",
+                "endpoint": "/nodes/llm",
                 "method": "POST",
                 "input_schema": {
                     "prompt": "string",
@@ -41,449 +44,90 @@ async def list_nodes():
                 }
             },
             {
-                "name": "ppt-ingest",
-                "description": "Extract text from PowerPoint presentations",
-                "endpoint": "/nodes/ppt-ingest",
+                "name": "loader",
+                "description": "Load content from files (Generic)",
+                "endpoint": "/nodes/loader",
                 "method": "POST",
                 "input_schema": {
-                    "file": "multipart/form-data (PowerPoint file)"
+                    "file_path": "string"
                 }
             },
             {
-                "name": "slack-mcp",
-                "description": "Interact with Slack via MCP integration",
-                "endpoint": "/nodes/slack-mcp",
+                "name": "slack",
+                "description": "Interact with Slack",
+                "endpoint": "/nodes/slack",
                 "method": "POST",
                 "input_schema": {
-                    "action": "string (get_channels, send_message)",
-                    "channel": "string (optional)",
-                    "message": "string (optional)"
+                    "action": "string (send_message, get_channels, etc.)",
+                    "channel": "string",
+                    "text": "string"
                 }
             },
             {
-                "name": "notion-mcp",
-                "description": "Interact with Notion via MCP integration",
-                "endpoint": "/nodes/notion-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_page, get_page, update_page, query_database, create_database_entry, search)",
-                    "page_id": "string (optional, required for get_page/update_page)",
-                    "parent_id": "string (optional, required for create_page)",
-                    "database_id": "string (optional, required for query_database/create_database_entry)",
-                    "title": "string (optional, for create_page/update_page)",
-                    "content": "string (optional, for create_page)",
-                    "filter": "object (optional, for query_database/search)",
-                    "sorts": "array (optional, for query_database)",
-                    "page_size": "int (optional, default: 10, for query_database)",
-                    "properties": "object (optional, required for create_database_entry)",
-                    "query": "string (optional, required for search)"
-                }
-            },
-            {
-                "name": "github-mcp",
-                "description": "Interact with GitHub via MCP integration",
-                "endpoint": "/nodes/github-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (get_repository, list_issues, create_issue, get_file, create_pull_request, list_pull_requests, search_repositories)",
-                    "repo": "string (optional, required for most actions, format: owner/repo)",
-                    "state": "string (optional, default: open, options: open, closed, all)",
-                    "limit": "int (optional, default: 10)",
-                    "title": "string (optional, required for create_issue/create_pull_request)",
-                    "body": "string (optional, for create_issue/create_pull_request)",
-                    "labels": "array of strings (optional, for create_issue)",
-                    "path": "string (optional, required for get_file)",
-                    "branch": "string (optional, default: main)",
-                    "head": "string (optional, required for create_pull_request)",
-                    "base": "string (optional, default: main, for create_pull_request)",
-                    "query": "string (optional, required for search_repositories)"
-                }
-            },
-            {
-                "name": "gmail-mcp",
-                "description": "Interact with Gmail via MCP integration",
-                "endpoint": "/nodes/gmail-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (watch_inbox, get_messages, send_message)",
-                    "topic_name": "string (optional, required for watch_inbox)",
-                    "query": "string (optional, for get_messages)",
-                    "max_results": "int (optional, default: 10)",
-                    "to": "string (optional, required for send_message)",
-                    "subject": "string (optional, required for send_message)",
-                    "body": "string (optional, required for send_message)"
-                }
-            },
-            {
-                "name": "calendar-mcp",
-                "description": "Interact with Google Calendar via MCP integration",
-                "endpoint": "/nodes/calendar-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (list_events, create_event, update_event, delete_event)",
-                    "calendar_id": "string (optional, default: primary)",
-                    "max_results": "int (optional, default: 10)",
-                    "time_min": "string (optional, ISO 8601 format)",
-                    "time_max": "string (optional, ISO 8601 format)",
-                    "event_id": "string (optional, required for update/delete)",
-                    "summary": "string (optional, event title)",
-                    "start_time": "string (optional, ISO 8601 format)",
-                    "end_time": "string (optional, ISO 8601 format)",
-                    "description": "string (optional)",
-                    "location": "string (optional)",
-                    "attendees": "array of strings (optional, email addresses)"
-                }
-            },
-            {
-                "name": "sheets-mcp",
-                "description": "Interact with Google Sheets via MCP integration",
-                "endpoint": "/nodes/sheets-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_spreadsheet, read_range, write_range, append_rows, clear_range, get_spreadsheet_info)",
-                    "spreadsheet_id": "string (optional, required for most actions)",
-                    "title": "string (optional, for create_spreadsheet)",
-                    "range": "string (optional, A1 notation like 'Sheet1!A1:D10')",
-                    "values": "array of arrays (optional, 2D array for write/append)"
-                }
-            },
-            {
-                "name": "docs-mcp",
-                "description": "Interact with Google Docs via MCP integration",
-                "endpoint": "/nodes/docs-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_document, read_document, append_text, insert_text, replace_text)",
-                    "document_id": "string (optional, required for most actions)",
-                    "title": "string (optional, for create_document)",
-                    "text": "string (optional, for text operations)",
-                    "index": "int (optional, for insert_text)",
-                    "find_text": "string (optional, for replace_text)",
-                    "replace_text": "string (optional, for replace_text)",
-                    "match_case": "bool (optional, for replace_text)"
-                }
-            },
-            {
-                "name": "slides-mcp",
-                "description": "Interact with Google Slides via MCP integration",
-                "endpoint": "/nodes/slides-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_presentation, read_presentation, add_slide, add_text_to_slide, delete_slide)",
-                    "presentation_id": "string (optional, required for most actions)",
-                    "title": "string (optional, for create_presentation)",
-                    "index": "int (optional, for add_slide)",
-                    "slide_id": "string (optional, for add_text_to_slide/delete_slide)",
-                    "text": "string (optional, for add_text_to_slide)"
-                }
-            },
-            {
-                "name": "forms-mcp",
-                "description": "Interact with Google Forms via MCP integration",
-                "endpoint": "/nodes/forms-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_form, get_form, list_responses, get_response, update_form)",
-                    "form_id": "string (optional, required for most actions)",
-                    "title": "string (optional, for create_form/update_form)",
-                    "description": "string (optional, for create_form/update_form)",
-                    "response_id": "string (optional, required for get_response)"
-                }
-            },
-            {
-                "name": "keep-mcp",
-                "description": "Interact with Google Keep via MCP integration",
-                "endpoint": "/nodes/keep-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_note, list_notes, get_note, update_note, delete_note)",
-                    "note_id": "string (optional, required for get_note/update_note/delete_note)",
-                    "title": "string (optional, for create_note/update_note)",
-                    "body": "string (optional, required for create_note, optional for update_note)",
-                    "page_size": "int (optional, default: 10, max: 100, for list_notes)"
-                }
-            },
-            {
-                "name": "apps-script-mcp",
-                "description": "Interact with Google Apps Script via MCP integration",
-                "endpoint": "/nodes/apps-script-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (create_project, get_project, update_project, run_function, list_deployments)",
-                    "script_id": "string (optional, required for most actions)",
-                    "title": "string (optional, for create_project)",
-                    "file_name": "string (optional, for update_project)",
-                    "file_type": "string (optional, default: SERVER_JS, options: SERVER_JS, HTML, JSON)",
-                    "source": "string (optional, for update_project)",
-                    "function_name": "string (optional, for run_function)",
-                    "parameters": "array (optional, for run_function)"
-                }
-            },
-            {
-                "name": "vertex-ai-mcp",
-                "description": "Interact with Google Vertex AI via MCP integration",
-                "endpoint": "/nodes/vertex-ai-mcp",
-                "method": "POST",
-                "input_schema": {
-                    "action": "string (generate_text, chat, generate_embeddings, list_models)",
-                    "prompt": "string (optional, required for generate_text)",
-                    "message": "string (optional, required for chat)",
-                    "model": "string (optional, default: gemini-1.5-flash)",
-                    "temperature": "float (optional, default: 0.7, range: 0.0-2.0)",
-                    "max_tokens": "int (optional, default: 1024)",
-                    "history": "array (optional, for chat)",
-                    "texts": "array of strings (optional, required for generate_embeddings)"
-                }
-            },
-            {
-                "name": "rag",
-                "description": "Retrieve relevant documents and generate augmented response",
-                "endpoint": "/nodes/rag",
+                "name": "retrieval",
+                "description": "Retrieve documents from knowledge base",
+                "endpoint": "/nodes/retrieval",
                 "method": "POST",
                 "input_schema": {
                     "query": "string",
-                    "collection_name": "string (default: default_collection)",
-                    "top_k": "int (default: 5)",
-                    "include_metadata": "bool (default: true)"
-                }
-            },
-            {
-                "name": "document-ingest",
-                "description": "Process and store documents in vector database",
-                "endpoint": "/nodes/document-ingest",
-                "method": "POST",
-                "input_schema": {
-                    "content": "string",
-                    "collection_name": "string (default: default_collection)",
-                    "metadata": "object (default: {})",
-                    "chunk_size": "int (optional)"
-                }
-            },
-            {
-                "name": "search",
-                "description": "Advanced search with semantic, BM25, and hybrid options",
-                "endpoint": "/nodes/search",
-                "method": "POST",
-                "input_schema": {
-                    "query": "string",
-                    "collection_name": "string (default: default_collection)",
-                    "search_type": "string (default: hybrid) - options: semantic, bm25, hybrid",
-                    "top_k": "int (default: 5)",
-                    "filters": "object (optional)",
-                    "semantic_weight": "float (default: 0.7)",
-                    "bm25_weight": "float (default: 0.3)"
-                }
-            },
-            {
-                "name": "advanced-rag",
-                "description": "Advanced RAG with context management and conversation history",
-                "endpoint": "/nodes/advanced-rag",
-                "method": "POST",
-                "input_schema": {
-                    "query": "string",
-                    "collection_name": "string (default: default_collection)",
-                    "search_type": "string (default: hybrid)",
-                    "top_k": "int (default: 5)",
-                    "include_conversation": "bool (default: true)",
-                    "max_history_turns": "int (default: 3)",
-                    "semantic_weight": "float (default: 0.7)",
-                    "bm25_weight": "float (default: 0.3)",
-                    "context_optimization": "bool (default: true)"
+                    "collection_name": "string",
+                    "top_k": "int"
                 }
             }
         ]
     }
 
 
+@router.post("/llm")
+async def run_llm_node(input_data: LLMInput):
+    """Run generic LLM node"""
+    result = await llm_node_handler(input_data)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error_message)
+    return result
+
+
+# 後方互換性エイリアス
 @router.post("/gemini")
-async def call_gemini_node(input_data: GeminiInput):
-    """Execute Gemini LLM node"""
-    try:
-        result = await gemini_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def run_gemini_node(input_data: LLMInput):
+    """Run Gemini node (Alias for LLM node)"""
+    return await run_llm_node(input_data)
 
 
+@router.post("/loader")
+async def run_loader_node(input_data: LoaderInput):
+    """Run generic loader node"""
+    # Currently reusing ppt handler logic for simplicity, but should be generic
+    return await ppt_ingest_handler(input_data.file_path)
+
+
+# 後方互換性エイリアス
 @router.post("/ppt-ingest")
-async def call_ppt_ingest_node(file: UploadFile = File(...)):
-    """Execute PowerPoint ingest node"""
-    try:
-        # Save uploaded file temporarily
-        import tempfile
-        import os
+async def run_ppt_ingest_node(file_path: str):
+    """Run PowerPoint ingest node (Alias for Loader node)"""
+    return await ppt_ingest_handler(file_path)
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_path = temp_file.name
-
-        try:
-            result = await ppt_ingest_handler(temp_path)
-            return result
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/slack")
-async def call_slack_node(input_data: SlackInput):
-    """Execute Slack node via MCP server"""
-    try:
-        result = await slack_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def run_slack_node(input_data: SlackInput):
+    """Run Slack node"""
+    result = await slack_node_handler(input_data)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error_message)
+    return result
 
 
-@router.post("/notion")
-async def call_notion_node(input_data: NotionInput):
-    """Execute Notion node via MCP server"""
-    try:
-        result = await notion_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/retrieval")
+async def run_retrieval_node(input_data: RetrievalInput):
+    """Run Retrieval node"""
+    result = await retrieval_node_handler(input_data)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error_message)
+    return result
 
 
-@router.post("/github")
-async def call_github_node(input_data: GitHubInput):
-    """Execute GitHub node via MCP server"""
-    try:
-        result = await github_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/gmail")
-async def call_gmail_node(input_data: GmailInput):
-    """Execute Gmail node via MCP server"""
-    try:
-        result = await gmail_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/calendar")
-async def call_calendar_mcp_node(input_data: GoogleCalendarInput):
-    """Execute Google Calendar node via MCP server"""
-    try:
-        result = await calendar_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/sheets")
-async def call_sheets_mcp_node(input_data: GoogleSheetsInput):
-    """Execute Google Sheets node via MCP server"""
-    try:
-        result = await sheets_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/docs")
-async def call_docs_mcp_node(input_data: GoogleDocsInput):
-    """Execute Google Docs node via MCP server"""
-    try:
-        result = await docs_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/slides")
-async def call_slides_mcp_node(input_data: GoogleSlidesInput):
-    """Execute Google Slides node via MCP server"""
-    try:
-        result = await slides_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/forms")
-async def call_forms_mcp_node(input_data: GoogleFormsInput):
-    """Execute Google Forms node via MCP server"""
-    try:
-        result = await forms_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/keep")
-async def call_keep_mcp_node(input_data: GoogleKeepInput):
-    """Execute Google Keep node via MCP server"""
-    try:
-        result = await keep_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/apps-script-mcp")
-async def call_apps_script_mcp_node(input_data: GoogleAppsScriptInput):
-    """Execute Google Apps Script node via MCP server"""
-    try:
-        result = await apps_script_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/vertex-ai-mcp")
-async def call_vertex_ai_mcp_node(input_data: VertexAiInput):
-    """Execute Vertex AI node via MCP server"""
-    try:
-        result = await vertex_ai_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+# 後方互換性エイリアス
 @router.post("/rag")
-async def call_rag_node(input_data: RAGInput):
-    """Execute RAG (Retrieval-Augmented Generation) node"""
-    try:
-        result = await rag_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/document-ingest")
-async def call_document_ingest_node(input_data: DocumentIngestInput):
-    """Execute document ingestion node"""
-    try:
-        result = await document_ingest_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/search")
-async def call_search_node(input_data: SearchInput):
-    """Execute advanced search node"""
-    try:
-        result = await search_node_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/advanced-rag")
-async def call_advanced_rag_node(input_data: AdvancedRAGInput):
-    """Execute advanced RAG node with context management"""
-    try:
-        result = await advanced_rag_handler(input_data)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def run_rag_node(input_data: RetrievalInput):
+    """Run RAG node (Alias for Retrieval node)"""
+    return await run_retrieval_node(input_data)

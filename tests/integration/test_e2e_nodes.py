@@ -8,7 +8,7 @@ import pytest
 from typing import Dict, Any
 
 from src.nodes.base import NodeState
-from src.nodes.primitives.llm.gemini.node import LLMNode
+from src.nodes.blocks.llm import LLMNode
 from src.providers.llm.mock import MockLLMProvider
 
 
