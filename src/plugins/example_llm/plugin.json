@@ -1,0 +1,16 @@
+{
+  "name": "example_llm",
+  "version": "1.0.0",
+  "author": "LangGraph Training Team",
+  "description": "Example LLM Provider demonstrating plugin.json manifest",
+  "provider_type": "llm",
+  "enabled": true,
+  "entry_point": "provider",
+  "dependencies": [],
+  "config": {
+    "default_model": "example-model",
+    "max_retries": 3,
+    "timeout": 30
+  }
+}
+
