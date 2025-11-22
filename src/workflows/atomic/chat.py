@@ -5,13 +5,16 @@ Chat Atomic Workflow - シンプルなチャット機能
 ユーザーとの対話を実現します。
 """
 
-from typing import Dict, Any
+from typing import Optional
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 import logging
 
 from src.nodes.base import NodeState
-from src.nodes.primitives.llm.gemini.node import GeminiNode
+from src.nodes.primitives.llm.gemini.node import LLMNode
+from src.core.providers.llm import LLMProvider
+from src.providers.llm.gemini import GeminiProvider
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +34,35 @@ class ChatOutput(BaseModel):
 
 
 class ChatWorkflow:
-    """シンプルなチャットワークフロー
+    """チャットワークフロー（プロバイダー注入可能）
     
-    GeminiNodeを使用して、ユーザーのメッセージに応答します。
-    最小の実行可能単位として、APIエンドポイントや
-    上位レイヤーから呼び出されます。
+    依存性注入パターンを使用し、任意のLLMProviderを注入できます。
+    これにより、テスト時のモック化や、異なるLLMサービスへの切り替えが容易になります。
+    
+    Example:
+        >>> # 新しい方法（推奨）
+        >>> provider = GeminiProvider(api_key="...", model="...")
+        >>> workflow = ChatWorkflow(llm_provider=provider)
+        >>> 
+        >>> # 既存の方法（後方互換）
+        >>> workflow = ChatWorkflow()  # デフォルトプロバイダーを使用
     """
 
-    def __init__(self):
-        self.llm_node = GeminiNode()
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+        """
+        Args:
+            llm_provider: LLMプロバイダー（省略時はGeminiProvider）
+        """
+        # ✅ プロバイダーが指定されなければデフォルトを使用
+        if llm_provider is None:
+            llm_provider = GeminiProvider(
+                api_key=settings.gemini_api_key,
+                model="gemini-2.0-flash-exp"
+            )
+        
+        self.llm_node = LLMNode(provider=llm_provider, name="chat_llm")
         self.graph = self._build_graph()
+        logger.info(f"ChatWorkflow initialized with {llm_provider.__class__.__name__}")
 
     def _build_graph(self) -> StateGraph:
         """LangGraphを構築"""
@@ -99,5 +121,13 @@ class ChatWorkflow:
                 success=False,
                 error_message=str(e)
             )
+    
+    def get_mermaid_diagram(self) -> str:
+        """LangGraphの可視化
+        
+        Returns:
+            Mermaid形式のグラフ定義
+        """
+        return self.graph.get_graph().draw_mermaid()
 
 

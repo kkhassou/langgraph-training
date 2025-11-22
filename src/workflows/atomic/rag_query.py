@@ -6,13 +6,15 @@ RAG Query Atomic Workflow - RAG検索機能
 LLMで拡張応答を生成します。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 import logging
 
 from src.nodes.base import NodeState
 from src.nodes.primitives.rag.simple.node import RAGNode
+from src.core.providers.rag import RAGProvider
+from src.providers.rag.simple import SimpleRAGProvider
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +35,32 @@ class RAGQueryOutput(BaseModel):
 
 
 class RAGQueryWorkflow:
-    """RAG検索ワークフロー
+    """RAG検索ワークフロー（プロバイダー注入可能）
     
-    RAGNodeを使用して、ベクトルデータベースから関連情報を検索し、
-    LLMで質問に答えます。
+    依存性注入パターンを使用し、任意のRAGProviderを注入できます。
+    これにより、テスト時のモック化や、異なるRAG実装への切り替えが容易になります。
+    
+    Example:
+        >>> # 新しい方法（推奨）
+        >>> provider = SimpleRAGProvider()
+        >>> workflow = RAGQueryWorkflow(rag_provider=provider)
+        >>> 
+        >>> # 既存の方法（後方互換）
+        >>> workflow = RAGQueryWorkflow()  # デフォルトプロバイダーを使用
     """
 
-    def __init__(self):
-        self.rag_node = RAGNode()
+    def __init__(self, rag_provider: Optional[RAGProvider] = None):
+        """
+        Args:
+            rag_provider: RAGプロバイダー（省略時はSimpleRAGProvider）
+        """
+        # ✅ プロバイダーが指定されなければデフォルトを使用
+        if rag_provider is None:
+            rag_provider = SimpleRAGProvider()
+        
+        self.rag_node = RAGNode(provider=rag_provider, name="rag_query")
         self.graph = self._build_graph()
+        logger.info(f"RAGQueryWorkflow initialized with {rag_provider.__class__.__name__}")
 
     def _build_graph(self) -> StateGraph:
         """LangGraphを構築"""
@@ -104,5 +123,13 @@ class RAGQueryWorkflow:
                 success=False,
                 error_message=str(e)
             )
+    
+    def get_mermaid_diagram(self) -> str:
+        """LangGraphの可視化
+        
+        Returns:
+            Mermaid形式のグラフ定義
+        """
+        return self.graph.get_graph().draw_mermaid()
 
 

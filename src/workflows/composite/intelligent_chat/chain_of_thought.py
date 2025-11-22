@@ -5,11 +5,12 @@ Chain of Thought Composite Workflow - 段階的推論
 段階的な推論を実現します。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 import logging
 
 from src.workflows.atomic.chat import ChatWorkflow, ChatInput
+from src.core.providers.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class ChainOfThoughtOutput(BaseModel):
 
 
 class ChainOfThoughtWorkflow:
-    """Chain of Thought（段階的推論）ワークフロー
+    """Chain of Thought（段階的推論）ワークフロー（プロバイダー注入可能）
     
     ChatWorkflow（Atomic）を複数回呼び出して、
     段階的に推論を深めていきます：
@@ -37,10 +38,23 @@ class ChainOfThoughtWorkflow:
     1. 問題分析（Atomicを使う）
     2. 推論ステップ（Atomicを使う）
     3. 最終回答（Atomicを使う）
+    
+    Example:
+        >>> # 新しい方法（推奨）
+        >>> provider = GeminiProvider(api_key="...", model="...")
+        >>> workflow = ChainOfThoughtWorkflow(llm_provider=provider)
+        >>> 
+        >>> # 既存の方法（後方互換）
+        >>> workflow = ChainOfThoughtWorkflow()  # デフォルトプロバイダーを使用
     """
 
-    def __init__(self):
-        self.chat = ChatWorkflow()
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+        """
+        Args:
+            llm_provider: LLMプロバイダー（省略時はデフォルト）
+        """
+        self.chat = ChatWorkflow(llm_provider=llm_provider)
+        logger.info("ChainOfThoughtWorkflow initialized")
 
     async def run(self, input_data: ChainOfThoughtInput) -> ChainOfThoughtOutput:
         """ワークフローを実行

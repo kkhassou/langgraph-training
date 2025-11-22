@@ -6,12 +6,13 @@ PPT Summary Composite Workflow - PowerPoint要約
 2. ChatWorkflow - LLMで要約生成
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 import logging
 
 from src.workflows.atomic.document_extract import DocumentExtractWorkflow, DocumentExtractInput
 from src.workflows.atomic.chat import ChatWorkflow, ChatInput
+from src.core.providers.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -34,18 +35,31 @@ class PPTSummaryOutput(BaseModel):
 
 
 class PPTSummaryWorkflow:
-    """PowerPoint要約ワークフロー
+    """PowerPoint要約ワークフロー（プロバイダー注入可能）
     
     2つのAtomicワークフローを組み合わせて、
     PPTファイルの内容を要約します：
     
     1. DocumentExtract（Atomic）でテキスト抽出
     2. Chat（Atomic）で要約生成
+    
+    Example:
+        >>> # 新しい方法（推奨）
+        >>> provider = GeminiProvider(api_key="...", model="...")
+        >>> workflow = PPTSummaryWorkflow(llm_provider=provider)
+        >>> 
+        >>> # 既存の方法（後方互換）
+        >>> workflow = PPTSummaryWorkflow()  # デフォルトプロバイダーを使用
     """
 
-    def __init__(self):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+        """
+        Args:
+            llm_provider: LLMプロバイダー（省略時はデフォルト）
+        """
         self.extractor = DocumentExtractWorkflow()
-        self.chat = ChatWorkflow()
+        self.chat = ChatWorkflow(llm_provider=llm_provider)
+        logger.info("PPTSummaryWorkflow initialized")
 
     async def run(self, input_data: PPTSummaryInput) -> PPTSummaryOutput:
         """ワークフローを実行

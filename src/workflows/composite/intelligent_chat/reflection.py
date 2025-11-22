@@ -5,11 +5,12 @@ Reflection Composite Workflow - 自己批判的推論
 生成した回答を自己批判し、改善します。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 import logging
 
 from src.workflows.atomic.chat import ChatWorkflow, ChatInput
+from src.core.providers.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class ReflectionOutput(BaseModel):
 
 
 class ReflectionWorkflow:
-    """Reflection（自己批判的推論）ワークフロー
+    """Reflection（自己批判的推論）ワークフロー（プロバイダー注入可能）
     
     ChatWorkflow（Atomic）を複数回呼び出して、
     回答を生成→批判→改善のサイクルを繰り返します：
@@ -38,10 +39,23 @@ class ReflectionWorkflow:
     2. 自己批判（Atomicを使う）
     3. 改善された回答（Atomicを使う）
     4. 必要に応じて繰り返し
+    
+    Example:
+        >>> # 新しい方法（推奨）
+        >>> provider = GeminiProvider(api_key="...", model="...")
+        >>> workflow = ReflectionWorkflow(llm_provider=provider)
+        >>> 
+        >>> # 既存の方法（後方互換）
+        >>> workflow = ReflectionWorkflow()  # デフォルトプロバイダーを使用
     """
 
-    def __init__(self):
-        self.chat = ChatWorkflow()
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+        """
+        Args:
+            llm_provider: LLMプロバイダー（省略時はデフォルト）
+        """
+        self.chat = ChatWorkflow(llm_provider=llm_provider)
+        logger.info("ReflectionWorkflow initialized")
 
     async def run(self, input_data: ReflectionInput) -> ReflectionOutput:
         """ワークフローを実行
