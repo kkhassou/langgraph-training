@@ -1,11 +1,11 @@
 """TODO Advisor Node - Generates advice for individual TODO items using LLM"""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 import logging
 
 from src.nodes.base import BaseNode, NodeResult
-from src.services.llm.gemini_service import GeminiService
+from src.core.providers.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +18,19 @@ class TodoAdvisorInput(BaseModel):
 
 
 class TodoAdvisorNode(BaseNode):
-    """Node that generates advice for a single TODO item"""
+    """Node that generates advice for a single TODO item using LLM Provider
+    
+    依存性注入パターンを使用し、任意のLLMProviderを注入できます。
+    テスト時にモックプロバイダーを使用することも可能です。
+    """
 
-    def __init__(self):
+    def __init__(self, provider: Optional[LLMProvider] = None):
         super().__init__("todo-advisor")
+        # プロバイダーが指定されなければデフォルトを使用
+        if provider is None:
+            from src.core.factory import ProviderFactory
+            provider = ProviderFactory.get_default_llm_provider()
+        self.provider = provider
 
     async def execute(self, input_data: Dict[str, Any]) -> NodeResult:
         """Generate advice for a TODO item"""
@@ -35,9 +44,9 @@ class TodoAdvisorNode(BaseNode):
             # プロンプト作成（ビジネスロジックに集中）
             prompt = self._create_advice_prompt(todo)
             
-            # ✅ GeminiServiceを使ってシンプルに呼び出し
+            # ✅ LLMProviderを使ってシンプルに呼び出し
             logger.info(f"Generating advice for TODO {index + 1}/{total}: {title}")
-            advice = await GeminiService.generate(
+            advice = await self.provider.generate(
                 prompt=prompt,
                 temperature=0.7
             )

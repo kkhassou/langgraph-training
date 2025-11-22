@@ -1,11 +1,11 @@
 """TODO Parser Node - Parses email content into individual TODO items using LLM"""
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Type
 from pydantic import BaseModel, Field
 import logging
 
 from src.nodes.base import BaseNode, NodeResult
-from src.services.llm.gemini_service import GeminiService
+from src.core.providers.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,19 @@ class TodoParserInput(BaseModel):
 
 
 class TodoParserNode(BaseNode):
-    """Node that parses email content into TODO items using LLM"""
+    """Node that parses email content into TODO items using LLM Provider
+    
+    依存性注入パターンを使用し、任意のLLMProviderを注入できます。
+    テスト時にモックプロバイダーを使用することも可能です。
+    """
 
-    def __init__(self):
+    def __init__(self, provider: Optional[LLMProvider] = None):
         super().__init__("todo-parser")
+        # プロバイダーが指定されなければデフォルトを使用
+        if provider is None:
+            from src.core.factory import ProviderFactory
+            provider = ProviderFactory.get_default_llm_provider()
+        self.provider = provider
 
     async def execute(self, input_data: Dict[str, Any]) -> NodeResult:
         """Parse email content into TODO items"""
@@ -46,9 +55,9 @@ class TodoParserNode(BaseNode):
             # プロンプト作成（ビジネスロジックに集中）
             prompt = self._create_parser_prompt(email_content, sender)
 
-            # ✅ GeminiServiceを使ってJSON生成
-            logger.info("Calling Gemini to parse TODO items")
-            result = await GeminiService.generate_json(
+            # ✅ LLMProviderを使ってJSON生成
+            logger.info("Calling LLM to parse TODO items")
+            result = await self.provider.generate_json(
                 prompt=prompt,
                 schema=TodoList,
                 temperature=0.7

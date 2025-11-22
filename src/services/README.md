@@ -1,187 +1,217 @@
-# Services Layer - 再利用可能なヘルパー関数群
+# Services Layer - 高レベルな統合サービス
 
-このディレクトリは、Nodes から呼び出される再利用可能なヘルパー関数・サービスを含みます。
+このディレクトリは、複数のプロバイダーやインフラ層を統合する高レベルなサービスを含みます。
 
 ## 📊 アーキテクチャにおける位置づけ
 
 ```
 ┌─────────────────────────────────┐
+│   Workflows Layer               │  ← 実行可能なグラフ
+│   (workflows/atomic/composite)  │
+└──────────────┬──────────────────┘
+               ↓ 使う
+┌─────────────────────────────────┐
 │   Nodes Layer                   │  ← LangGraphノード定義
-│   (nodes/primitives/composites) │     (Servicesを使う)
+│   (nodes/primitives/composites) │
 └──────────────┬──────────────────┘
                ↓ 使う
 ┌─────────────────────────────────┐
-│   Services Layer ⭐ ここ！       │  ← 再利用可能な関数群
-│   (services/llm/mcp/document)   │     (Pure Helpers)
+│   Providers Layer               │  ← 抽象インターフェース
+│   (core/providers, providers/)  │     (LLM, RAGなど)
 └──────────────┬──────────────────┘
                ↓ 使う
 ┌─────────────────────────────────┐
-│   Infrastructure Layer          │  ← 技術基盤
+│   Services Layer ⭐ ここ！       │  ← 統合サービス
+│   (services/rag/mcp/document)   │     (複数プロバイダーを統合)
+└──────────────┬──────────────────┘
+               ↓ 使う
+┌─────────────────────────────────┐
+│   Infrastructure Layer          │  ← 低レベル実装
 │   (embeddings, vector_stores)   │
 └─────────────────────────────────┘
 ```
 
-## 🎯 Services 層の役割
+## 🎯 Services 層の新しい役割（リファクタリング後）
 
-### 目的
+### ⚠️ 重要な変更
 
-- **ノードをシンプルに保つ**: 低レベルの API 呼び出しを Services に分離
-- **再利用性**: 複数のノードから同じサービスを使える
-- **テストしやすさ**: サービス単体でテスト可能
-- **保守性**: 外部 API の変更はサービスのみ修正
+**LLM Service Layer は廃止されました。** LLM関連の機能は Provider Layer に統合されました。
+
+### 現在の役割
+
+Services Layer は以下の **統合サービス** のみを提供します：
+
+1. **RAG Service** - embedding生成、検索、LLM生成を統合
+2. **MCP Service** - MCP関連の統合機能（今後）
+3. **Document Service** - ドキュメント処理の統合機能（今後）
 
 ### 判断基準
 
-**「この機能は複数のノードから使われるか？」** → YES なら Services
+**「この機能は複数のプロバイダーやインフラ層を統合するか？」** → YES なら Services
 
-## 📁 ディレクトリ構造
+## 📁 ディレクトリ構造（リファクタリング後）
 
 ```
 src/services/
 │
-├── llm/                    # LLMサービス
-│   ├── __init__.py
-│   ├── base.py            # LLMサービス基底クラス
-│   └── gemini_service.py  # Geminiヘルパー
+├── llm/                    # ❌ 廃止 → src/core/providers/llm へ移行
+│   └── __init__.py         # 廃止のお知らせと移行ガイド
 │
-├── mcp/                    # MCPサービス（予定）
+├── rag/                    # ✅ 統合サービスとして残す
 │   ├── __init__.py
-│   ├── slack_service.py
-│   ├── github_service.py
-│   └── ...
+│   └── rag_service.py      # Embedding + VectorStore + LLM の統合
 │
-└── document/               # ドキュメント処理サービス（予定）
+├── mcp/                    # ✅ MCP統合サービス
+│   ├── __init__.py
+│   ├── slack.py
+│   ├── github.py
+│   └── google/...
+│
+└── document/               # ✅ ドキュメント処理サービス
     ├── __init__.py
-    └── parser_service.py
+    └── document_service.py
 ```
 
 ## 💡 使用例
 
-### LLM Services
+### ⚠️ LLM Services は廃止されました
 
-#### 1. シンプルなテキスト生成
-
+**旧コード（廃止）:**
 ```python
 from src.services.llm.gemini_service import GeminiService
 
-# ノード内で使用
-class TodoAdvisorNode(BaseNode):
-    async def execute(self, input_data):
-        prompt = self._create_prompt(input_data["todo"])
-
-        # ✅ 3行で完了！
-        advice = await GeminiService.generate(
-            prompt=prompt,
-            temperature=0.7
-        )
-
-        return NodeResult(success=True, data={"advice": advice})
+# ❌ この方法は使用しないでください
+advice = await GeminiService.generate(prompt=prompt, temperature=0.7)
 ```
 
-#### 2. 構造化された JSON 生成
+**新しいコード（推奨）:**
+```python
+from src.core.factory import ProviderFactory
+
+# ✅ Providerパターンを使用
+provider = ProviderFactory.get_default_llm_provider()
+advice = await provider.generate(prompt=prompt, temperature=0.7)
+```
+
+### RAG Services（統合サービス）
+
+#### RAGクエリの実行
 
 ```python
-from src.services.llm.gemini_service import GeminiService
+from src.services.rag.rag_service import RAGService
+
+# RAGサービスを初期化
+service = RAGService()
+
+# クエリを実行（embedding生成、検索、LLM生成を統合）
+result = await service.query(
+    query="機械学習とは？",
+    collection_name="tech_docs",
+    top_k=5
+)
+
+print(result.answer)  # LLMの応答
+print(result.retrieved_documents)  # 検索結果
+```
+
+#### ドキュメントの登録
+
+```python
+from src.services.rag.rag_service import RAGService
+
+service = RAGService()
+
+documents = [
+    {
+        "id": "doc1",
+        "content": "機械学習は...",
+        "metadata": {"source": "textbook"}
+    }
+]
+
+result = await service.ingest_documents(
+    documents=documents,
+    collection_name="tech_docs"
+)
+```
+
+## 📝 LLM Provider API リファレンス（移行先）
+
+### ⚠️ LLM関連は Provider Layer へ移行しました
+
+LLM機能は `src.core.providers.llm.LLMProvider` インターフェースに統合されています。
+
+**新しい使い方:**
+
+```python
+from src.core.factory import ProviderFactory
+
+# Providerを取得
+provider = ProviderFactory.get_default_llm_provider()
+
+# テキスト生成
+text = await provider.generate(
+    prompt="こんにちは",
+    temperature=0.7
+)
+
+# JSON生成
 from pydantic import BaseModel
 
-class TodoList(BaseModel):
-    todos: List[Dict[str, Any]]
+class TodoItem(BaseModel):
+    title: str
+    priority: str
 
-# JSON形式で返答を取得
-result = await GeminiService.generate_json(
-    prompt="メールからTODOを抽出してください",
-    schema=TodoList,
+result = await provider.generate_json(
+    prompt="TODOを作成してください",
+    schema=TodoItem,
     temperature=0.7
 )
 
-print(result.todos)  # Pydanticモデルとして返される
-```
-
-#### 3. コンテキスト付き生成（RAG 用）
-
-```python
-from src.services.llm.gemini_service import GeminiService
-
-# RAGでの使用
-answer = await GeminiService.generate_with_context(
+# コンテキスト付き生成
+answer = await provider.generate_with_context(
     user_query="機械学習とは？",
-    context="機械学習は...（検索結果）",
-    system_instruction="専門家として回答してください"
-)
-```
-
-#### 4. チャット形式での生成
-
-```python
-from src.services.llm.gemini_service import GeminiService
-
-response = await GeminiService.chat(
-    messages=[
-        {"role": "user", "content": "こんにちは"},
-        {"role": "assistant", "content": "こんにちは！"},
-        {"role": "user", "content": "今日の天気は？"}
-    ],
+    context="機械学習は...",
+    system_instruction="専門家として回答してください",
     temperature=0.7
 )
 ```
 
-## 📝 GeminiService API リファレンス
+詳細は以下を参照：
+- `src/core/providers/llm.py` - LLMProviderインターフェース
+- `src/providers/llm/gemini.py` - Gemini実装
+- `src/core/factory.py` - ProviderFactory
 
-### `GeminiService.generate()`
+## 📝 RAG Service API リファレンス
 
-シンプルなテキスト生成
+### `RAGService.query()`
 
-**パラメータ**:
-
-- `prompt: str` - 入力プロンプト
-- `model: str = "gemini-2.0-flash-exp"` - 使用するモデル
-- `temperature: float = 0.7` - 生成の多様性（0.0-1.0）
-- `max_tokens: Optional[int] = None` - 最大トークン数
-
-**戻り値**: `str` - 生成されたテキスト
-
-### `GeminiService.generate_json()`
-
-構造化された JSON 出力を生成
+RAGクエリを実行（embedding生成、検索、LLM生成を統合）
 
 **パラメータ**:
 
-- `prompt: str` - 入力プロンプト
-- `schema: Type[BaseModel]` - Pydantic スキーマ
-- `model: str = "gemini-2.0-flash-exp"` - 使用するモデル
-- `temperature: float = 0.7` - 生成の多様性
+- `query: str` - ユーザーの質問
+- `collection_name: str = "default_collection"` - 検索対象のコレクション
+- `top_k: int = 5` - 取得するドキュメント数
+- `include_embedding: bool = False` - 埋め込みベクトルを含めるか
+- `temperature: float = 0.7` - LLMの温度パラメータ
 
-**戻り値**: `BaseModel` - Pydantic モデルのインスタンス
+**戻り値**: `RAGResult` - RAG実行結果
 
-### `GeminiService.generate_with_context()`
+### `RAGService.ingest_documents()`
 
-コンテキスト付きテキスト生成（RAG 用）
-
-**パラメータ**:
-
-- `user_query: str` - ユーザーの質問
-- `context: str` - 参考情報（検索結果など）
-- `system_instruction: Optional[str] = None` - システム命令
-- `model: str = "gemini-2.0-flash-exp"` - 使用するモデル
-- `temperature: float = 0.7` - 生成の多様性
-
-**戻り値**: `str` - 生成されたテキスト
-
-### `GeminiService.chat()`
-
-チャット形式での生成
+ドキュメントをVector Storeに登録
 
 **パラメータ**:
 
-- `messages: list[Dict[str, str]]` - メッセージ履歴
-- `model: str = "gemini-2.0-flash-exp"` - 使用するモデル
-- `temperature: float = 0.7` - 生成の多様性
+- `documents: List[Dict[str, Any]]` - ドキュメントのリスト
+- `collection_name: str = "default_collection"` - コレクション名
 
-**戻り値**: `str` - 生成されたテキスト
+**戻り値**: `Dict[str, Any]` - 登録結果
 
-## 🎁 メリット
+## 🎁 メリット（Provider パターンへの移行後）
 
-### Before（Services 層なし）
+### Before（直接API呼び出し）
 
 ```python
 # 各ノードで36行の重複コード
@@ -197,42 +227,69 @@ class TodoAdvisorNode:
         # ...
 ```
 
-### After（Services 層あり）
+### After（Provider パターン + 依存性注入）
 
 ```python
-# シンプルに15行
+# シンプルで拡張可能
 class TodoAdvisorNode:
+    def __init__(self, provider: Optional[LLMProvider] = None):
+        self.provider = provider or ProviderFactory.get_default_llm_provider()
+    
     async def execute(self, input_data):
         prompt = self._create_prompt(input_data["todo"])
-        advice = await GeminiService.generate(prompt, temperature=0.7)
+        advice = await self.provider.generate(prompt, temperature=0.7)
         return NodeResult(success=True, data={"advice": advice})
 ```
 
-**結果**: コードが 60%削減、保守性・テスト性が向上！
+**結果**: 
+- コードが 60%削減
+- テスト時にモック注入が可能
+- 異なるLLMへの切り替えが容易
+- 保守性・拡張性が大幅に向上！
 
 ## 🚀 今後の拡張
 
-### 他の LLM サービスの追加
+### 新しいLLM Providerの追加（Provider Layer）
 
 ```python
-# src/services/llm/openai_service.py
-class OpenAIService(BaseLLMService):
+# src/providers/llm/openai.py
+from src.core.providers.llm import LLMProvider
+
+class OpenAIProvider(LLMProvider):
     async def generate(self, prompt: str, **kwargs) -> str:
         # OpenAI実装
+        ...
+
+# 登録
+from src.core.factory import ProviderFactory
+ProviderFactory.register_llm_provider("openai", OpenAIProvider)
 ```
 
-### MCP サービスの統合
+### RAG統合サービスの強化
 
 ```python
-# src/services/mcp/slack_service.py
-class SlackService:
-    @staticmethod
-    async def send_message(channel: str, text: str) -> Dict[str, Any]:
-        # Slack MCP実装
+# src/services/rag/advanced_rag_service.py
+class AdvancedRAGService(RAGService):
+    """より高度な検索・生成機能を持つRAGサービス"""
+    async def query_with_reranking(self, query: str, **kwargs):
+        # リランキング機能を追加
+        ...
+```
+
+### MCP統合サービス
+
+```python
+# src/services/mcp/unified_mcp_service.py
+class UnifiedMCPService:
+    """複数のMCPサービスを統合"""
+    async def execute_workflow(self, workflow: Dict[str, Any]):
+        # Slack + GitHub + Google の統合ワークフロー
+        ...
 ```
 
 ## 📚 関連ドキュメント
 
-- [完全なアーキテクチャ設計](../../COMPLETE_ARCHITECTURE.md)
-- [Nodes アーキテクチャ](../../NODES_ARCHITECTURE.md)
-- [アーキテクチャ概要](../../NODES_ARCHITECTURE_SUMMARY.md)
+- [リファクタリング完了レポート](../../REFACTORING_COMPLETE.md)
+- [Provider層の設計](../../PHASE1_COMPLETE.md)
+- [Factory パターン](../../PHASE4_COMPLETE.md)
+- [アーキテクチャ概要](../../拡張性を考慮したアーキテクトへのアドバイス.md)

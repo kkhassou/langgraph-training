@@ -10,7 +10,7 @@ from src.infrastructure.search.semantic_search import SemanticSearchProvider
 from src.infrastructure.search.bm25_search import BM25SearchProvider
 from src.infrastructure.search.base import SearchQuery
 from src.infrastructure.context.context_manager import ContextManager
-from src.services.llm.gemini_service import GeminiService
+from src.core.providers.llm import LLMProvider
 from src.core.config import settings
 
 
@@ -36,9 +36,13 @@ class AdvancedRAGOutput(NodeOutput):
 
 
 class AdvancedRAGNode(BaseNode):
-    """Advanced RAG node with context management and optimized retrieval"""
+    """Advanced RAG node with context management and optimized retrieval
+    
+    依存性注入パターンを使用し、任意のLLMProviderを注入できます。
+    テスト時にモックプロバイダーを使用することも可能です。
+    """
 
-    def __init__(self):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
         super().__init__(
             name="advanced_rag_node",
             description="Advanced RAG with context management and conversation history"
@@ -47,6 +51,10 @@ class AdvancedRAGNode(BaseNode):
         self.vector_store = None
         self.search_providers = {}
         self.context_manager = ContextManager()
+        if llm_provider is None:
+            from src.core.factory import ProviderFactory
+            llm_provider = ProviderFactory.get_default_llm_provider()
+        self.llm_provider = llm_provider
 
     def _initialize_components(self):
         """Initialize RAG components lazily"""
@@ -160,16 +168,16 @@ class AdvancedRAGNode(BaseNode):
                 context_text = "\n\n".join([f"文書{i+1}: {doc.content}" for i, doc in enumerate(retrieved_documents)])
                 prompt = query  # We'll use generate_with_context instead
 
-            # Step 5: Generate response using GeminiService
-            # ✅ GeminiServiceを使ってシンプルに呼び出し
+            # Step 5: Generate response using LLM Provider
+            # ✅ LLMProviderを使ってシンプルに呼び出し
             if context_optimization:
-                ai_response = await GeminiService.generate(
+                ai_response = await self.llm_provider.generate(
                     prompt=prompt,
                     temperature=0.7
                 )
             else:
                 context_text = "\n\n".join([f"文書{i+1}: {doc.content}" for i, doc in enumerate(retrieved_documents)])
-                ai_response = await GeminiService.generate_with_context(
+                ai_response = await self.llm_provider.generate_with_context(
                     user_query=query,
                     context=context_text
                 )

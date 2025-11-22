@@ -8,7 +8,7 @@ from src.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
 from src.infrastructure.vector_stores.supabase import SupabaseVectorStore
 from src.infrastructure.vector_stores.local import LocalVectorStore
 from src.infrastructure.vector_stores.base import Document
-from src.services.llm.gemini_service import GeminiService
+from src.core.providers.llm import LLMProvider
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -25,12 +25,17 @@ class RAGResult(BaseModel):
 class RAGService:
     """RAG (Retrieval-Augmented Generation) サービス
     
-    embedding生成、検索、LLM生成を統合したワンストップサービス
+    embedding生成、検索、LLM生成を統合したワンストップサービス。
+    依存性注入パターンを使用し、任意のLLMProviderを注入できます。
     """
     
-    def __init__(self):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
         self.embedding_provider = None
         self.vector_store = None
+        if llm_provider is None:
+            from src.core.factory import ProviderFactory
+            llm_provider = ProviderFactory.get_default_llm_provider()
+        self.llm_provider = llm_provider
         self._initialized = False
     
     async def _ensure_initialized(self):
@@ -127,8 +132,8 @@ class RAGService:
         
         context = "\n\n".join(context_parts)
         
-        # Step 4: Generate answer using LLM
-        answer = await GeminiService.generate_with_context(
+        # Step 4: Generate answer using LLM Provider
+        answer = await self.llm_provider.generate_with_context(
             user_query=query,
             context=context,
             system_instruction="あなたは質問応答システムです。文脈情報に基づいて正確に答え、情報が不足している場合は明確に述べてください。",
