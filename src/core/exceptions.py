@@ -231,3 +231,54 @@ class UnknownProviderError(FactoryError):
 class ProviderRegistrationError(FactoryError):
     """プロバイダー登録エラー"""
     pass
+
+
+# ============================================================================
+# Plugin System Exceptions
+# ============================================================================
+
+class PluginError(LangGraphBaseException):
+    """プラグイン関連の基底エラー"""
+    pass
+
+
+class PluginLoadError(PluginError):
+    """プラグイン読み込みエラー
+    
+    プラグインのインポートや初期化に失敗した場合に発生します。
+    
+    Example:
+        >>> raise PluginLoadError(
+        ...     "Failed to load plugin 'custom_llm'",
+        ...     details={"plugin": "custom_llm", "reason": "Module not found"}
+        ... )
+    """
+    pass
+
+
+class PluginValidationError(PluginError):
+    """プラグイン検証エラー
+    
+    プラグインのメタデータや構造が不正な場合に発生します。
+    
+    Example:
+        >>> raise PluginValidationError(
+        ...     "Plugin metadata is missing",
+        ...     details={"plugin": "custom_llm"}
+        ... )
+    """
+    pass
+
+
+class PluginRegistrationError(PluginError):
+    """プラグイン登録エラー
+    
+    プラグインのFactoryへの登録に失敗した場合に発生します。
+    
+    Example:
+        >>> raise PluginRegistrationError(
+        ...     "Failed to register plugin provider",
+        ...     details={"plugin": "custom_llm", "provider_type": "llm"}
+        ... )
+    """
+    pass
