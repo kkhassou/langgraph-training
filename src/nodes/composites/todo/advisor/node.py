@@ -6,6 +6,11 @@ import logging
 
 from src.nodes.base import BaseNode, NodeResult
 from src.core.providers.llm import LLMProvider
+from src.core.exceptions import (
+    NodeExecutionError,
+    NodeInputValidationError,
+    LLMProviderError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +38,36 @@ class TodoAdvisorNode(BaseNode):
         self.provider = provider
 
     async def execute(self, input_data: Dict[str, Any]) -> NodeResult:
-        """Generate advice for a TODO item"""
+        """Generate advice for a TODO item
+        
+        Raises:
+            NodeInputValidationError: 入力が不正な場合
+            NodeExecutionError: 実行に失敗した場合
+        """
         try:
             todo = input_data.get("todo", {})
             index = input_data.get("index", 0)
             total = input_data.get("total", 1)
+
+            # 入力検証
+            if not todo:
+                raise NodeInputValidationError(
+                    "TODO item is required",
+                    details={
+                        "node": self.name,
+                        "index": index,
+                        "total": total
+                    }
+                )
+            
+            if not isinstance(todo, dict):
+                raise NodeInputValidationError(
+                    "TODO item must be a dictionary",
+                    details={
+                        "node": self.name,
+                        "todo_type": type(todo).__name__
+                    }
+                )
 
             title = todo.get("title", "")
             
@@ -70,12 +100,30 @@ class TodoAdvisorNode(BaseNode):
                 }
             )
 
+        except NodeInputValidationError:
+            raise
+        except LLMProviderError as e:
+            raise NodeExecutionError(
+                f"LLM provider error while generating advice",
+                details={
+                    "node": self.name,
+                    "todo_title": title,
+                    "index": index,
+                    "error_details": e.details if hasattr(e, 'details') else {}
+                },
+                original_error=e
+            )
         except Exception as e:
-            logger.error(f"Error generating advice: {e}")
-            return NodeResult(
-                success=False,
-                error=str(e),
-                metadata={"action": "generate_advice"}
+            logger.error(f"Unexpected error generating advice: {e}")
+            raise NodeExecutionError(
+                f"Unexpected error in {self.name}",
+                details={
+                    "node": self.name,
+                    "todo_title": title if 'title' in locals() else "unknown",
+                    "index": index,
+                    "error_type": type(e).__name__
+                },
+                original_error=e
             )
 
     def _create_advice_prompt(self, todo: Dict[str, Any]) -> str:

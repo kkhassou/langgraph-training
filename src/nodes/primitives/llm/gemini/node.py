@@ -7,6 +7,11 @@ from src.nodes.base import BaseNode, NodeState, NodeInput, NodeOutput
 from src.core.providers.llm import LLMProvider
 from src.providers.llm.gemini import GeminiProvider
 from src.core.config import settings
+from src.core.exceptions import (
+    NodeExecutionError,
+    NodeInputValidationError,
+    LLMProviderError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +45,28 @@ class LLMNode(BaseNode):
         self.provider = provider
 
     async def execute(self, state: NodeState) -> NodeState:
-        """LLM生成を実行"""
+        """LLM生成を実行
+        
+        Raises:
+            NodeInputValidationError: 入力が不正な場合
+            NodeExecutionError: ノードの実行に失敗した場合
+        """
         try:
             # プロンプトを取得
             if state.messages:
                 prompt = state.messages[-1]
             else:
                 prompt = state.data.get("prompt", "Hello, how can I help you?")
+            
+            if not prompt or not isinstance(prompt, str):
+                raise NodeInputValidationError(
+                    "Invalid prompt: must be a non-empty string",
+                    details={
+                        "node": self.name,
+                        "prompt_type": type(prompt).__name__,
+                        "messages_count": len(state.messages)
+                    }
+                )
 
             # パラメータを取得
             temperature = state.data.get("temperature", 0.7)
@@ -68,11 +88,30 @@ class LLMNode(BaseNode):
 
             return state
 
+        except NodeInputValidationError:
+            raise
+        except LLMProviderError as e:
+            # Provider層からの例外は詳細情報を保持してNodeErrorとして再throw
+            raise NodeExecutionError(
+                f"LLM provider error in node {self.name}",
+                details={
+                    "node": self.name,
+                    "provider": type(self.provider).__name__,
+                    "error_details": e.details if hasattr(e, 'details') else {}
+                },
+                original_error=e
+            )
         except Exception as e:
-            logger.error(f"Error in LLM node: {e}")
-            state.data["error"] = str(e)
-            state.metadata["error_node"] = self.name
-            return state
+            logger.error(f"Unexpected error in LLM node {self.name}: {e}")
+            raise NodeExecutionError(
+                f"Unexpected error in LLM node {self.name}",
+                details={
+                    "node": self.name,
+                    "provider": type(self.provider).__name__,
+                    "error_type": type(e).__name__
+                },
+                original_error=e
+            )
 
 
 # ✅ 後方互換性のためのエイリアス

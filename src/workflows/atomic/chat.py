@@ -15,6 +15,11 @@ from src.nodes.primitives.llm.gemini.node import LLMNode
 from src.core.providers.llm import LLMProvider
 from src.providers.llm.gemini import GeminiProvider
 from src.core.config import settings
+from src.core.exceptions import (
+    WorkflowExecutionError,
+    WorkflowBuildError,
+    NodeExecutionError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +90,21 @@ class ChatWorkflow:
             
         Returns:
             ChatOutput: LLMの応答
+            
+        Raises:
+            WorkflowExecutionError: ワークフローの実行に失敗した場合
         """
         try:
+            # 入力検証
+            if not input_data.message or not input_data.message.strip():
+                raise WorkflowExecutionError(
+                    "Message cannot be empty",
+                    details={
+                        "workflow": "ChatWorkflow",
+                        "input_type": type(input_data).__name__
+                    }
+                )
+            
             # 状態を作成
             state = NodeState()
             state.messages = [input_data.message]
@@ -99,14 +117,20 @@ class ChatWorkflow:
 
             # エラーチェック
             if "error" in result_state.data:
-                return ChatOutput(
-                    response="",
-                    success=False,
-                    error_message=result_state.data["error"]
+                raise WorkflowExecutionError(
+                    "Node execution failed in chat workflow",
+                    details={
+                        "workflow": "ChatWorkflow",
+                        "error": result_state.data["error"],
+                        "error_node": result_state.metadata.get("error_node", "unknown")
+                    }
                 )
 
             # 結果を返す
             response = result_state.data.get("llm_response", "")
+            if not response:
+                logger.warning("Empty response from LLM")
+            
             logger.info(f"Chat workflow completed successfully")
 
             return ChatOutput(
@@ -114,12 +138,28 @@ class ChatWorkflow:
                 success=True
             )
 
+        except WorkflowExecutionError:
+            raise
+        except NodeExecutionError as e:
+            raise WorkflowExecutionError(
+                "Node execution failed in chat workflow",
+                details={
+                    "workflow": "ChatWorkflow",
+                    "message_length": len(input_data.message),
+                    "error_details": e.details if hasattr(e, 'details') else {}
+                },
+                original_error=e
+            )
         except Exception as e:
-            logger.error(f"Error in chat workflow: {e}")
-            return ChatOutput(
-                response="",
-                success=False,
-                error_message=str(e)
+            logger.error(f"Unexpected error in chat workflow: {e}")
+            raise WorkflowExecutionError(
+                "Unexpected error in chat workflow",
+                details={
+                    "workflow": "ChatWorkflow",
+                    "message_length": len(input_data.message),
+                    "error_type": type(e).__name__
+                },
+                original_error=e
             )
     
     def get_mermaid_diagram(self) -> str:

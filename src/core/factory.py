@@ -9,6 +9,11 @@ from src.providers.llm.gemini import GeminiProvider
 from src.providers.llm.mock import MockLLMProvider
 from src.providers.rag.simple import SimpleRAGProvider
 from src.core.config import settings
+from src.core.exceptions import (
+    UnknownProviderError,
+    ProviderRegistrationError,
+    MissingConfigError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +64,8 @@ class ProviderFactory:
             LLMProvider: 生成されたプロバイダー
         
         Raises:
-            ValueError: 未知のプロバイダータイプの場合
+            UnknownProviderError: 未知のプロバイダータイプの場合
+            MissingConfigError: 必須設定が欠落している場合
         
         Example:
             >>> # デフォルト（Gemini）
@@ -73,9 +79,12 @@ class ProviderFactory:
         """
         if provider_type not in cls._llm_providers:
             available = ", ".join(cls._llm_providers.keys())
-            raise ValueError(
-                f"Unknown LLM provider type: {provider_type}. "
-                f"Available: {available}"
+            raise UnknownProviderError(
+                f"Unknown LLM provider type: {provider_type}",
+                details={
+                    "provider_type": provider_type,
+                    "available_providers": list(cls._llm_providers.keys())
+                }
             )
 
         provider_class = cls._llm_providers[provider_type]
@@ -84,12 +93,32 @@ class ProviderFactory:
         # デフォルト設定を適用
         if provider_type == "gemini":
             if "api_key" not in config:
+                if not settings.gemini_api_key:
+                    raise MissingConfigError(
+                        "GEMINI_API_KEY is not configured",
+                        details={
+                            "provider_type": provider_type,
+                            "missing_config": "GEMINI_API_KEY",
+                            "hint": "Set GEMINI_API_KEY in .env file or pass api_key in config"
+                        }
+                    )
                 config["api_key"] = settings.gemini_api_key
             if "model" not in config:
                 config["model"] = "gemini-2.0-flash-exp"
 
         logger.info(f"Creating LLM provider: {provider_type}")
-        return provider_class(**config)
+        try:
+            return provider_class(**config)
+        except Exception as e:
+            raise ProviderRegistrationError(
+                f"Failed to create {provider_type} provider",
+                details={
+                    "provider_type": provider_type,
+                    "provider_class": provider_class.__name__,
+                    "config_keys": list(config.keys())
+                },
+                original_error=e
+            )
     
     @classmethod
     def create_rag_provider(
@@ -107,23 +136,38 @@ class ProviderFactory:
             RAGProvider: 生成されたプロバイダー
         
         Raises:
-            ValueError: 未知のプロバイダータイプの場合
+            UnknownProviderError: 未知のプロバイダータイプの場合
+            ProviderRegistrationError: プロバイダーの生成に失敗した場合
         
         Example:
             >>> provider = ProviderFactory.create_rag_provider()
         """
         if provider_type not in cls._rag_providers:
             available = ", ".join(cls._rag_providers.keys())
-            raise ValueError(
-                f"Unknown RAG provider type: {provider_type}. "
-                f"Available: {available}"
+            raise UnknownProviderError(
+                f"Unknown RAG provider type: {provider_type}",
+                details={
+                    "provider_type": provider_type,
+                    "available_providers": list(cls._rag_providers.keys())
+                }
             )
 
         provider_class = cls._rag_providers[provider_type]
         config = config or {}
 
         logger.info(f"Creating RAG provider: {provider_type}")
-        return provider_class(**config)
+        try:
+            return provider_class(**config)
+        except Exception as e:
+            raise ProviderRegistrationError(
+                f"Failed to create {provider_type} RAG provider",
+                details={
+                    "provider_type": provider_type,
+                    "provider_class": provider_class.__name__,
+                    "config_keys": list(config.keys())
+                },
+                original_error=e
+            )
 
     @classmethod
     def register_llm_provider(
