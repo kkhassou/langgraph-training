@@ -6,3 +6,4 @@ APIエンドポイントとして公開されたり、
 上位レイヤー（Composite/Orchestrations）から呼び出される。
 """
 
+
