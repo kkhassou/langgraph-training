@@ -3,6 +3,7 @@
 from typing import Optional, Type, Dict, Any, List
 from pydantic import BaseModel
 import logging
+import asyncio
 
 from src.core.providers.llm import LLMProvider
 
@@ -10,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 class MockLLMProvider(LLMProvider):
-    """テスト用モックLLMプロバイダー
+    """テスト用モックLLMプロバイダー（パフォーマンステスト対応）
     
     実際のAPIを呼び出さずに、事前に定義された応答を返します。
     単体テストやインテグレーションテストで使用します。
+    
+    パフォーマンステスト用に、レート制限とコネクションプールのシミュレーションも提供します。
     
     Attributes:
         responses: プロンプトと応答のマッピング
@@ -32,18 +35,31 @@ class MockLLMProvider(LLMProvider):
     def __init__(
         self,
         responses: Optional[Dict[str, str]] = None,
-        default_response: str = "Mock response"
+        default_response: str = "Mock response",
+        max_concurrent_requests: int = 5,
+        rate_limit_per_minute: int = 60
     ):
         """
         Args:
             responses: プロンプトと応答のマッピング
             default_response: マッピングにない場合のデフォルト応答
+            max_concurrent_requests: 同時リクエスト数の上限（テスト用）
+            rate_limit_per_minute: 1分あたりのリクエスト数上限（テスト用）
         """
         self.responses = responses or {}
         self.default_response = default_response
         self.call_history: List[Dict[str, Any]] = []
         
-        logger.info("MockLLMProvider initialized")
+        # パフォーマンステスト用（実際には使用しないが、設定は保持）
+        self._semaphore = asyncio.Semaphore(max_concurrent_requests)
+        from src.providers.llm.gemini import RateLimiter
+        self._rate_limiter = RateLimiter(rate_limit_per_minute)
+        
+        logger.info(
+            f"MockLLMProvider initialized: "
+            f"max_concurrent={max_concurrent_requests}, "
+            f"rate_limit={rate_limit_per_minute}/min"
+        )
     
     async def generate(
         self,

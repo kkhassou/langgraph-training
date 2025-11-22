@@ -1,9 +1,12 @@
 """Gemini LLM Provider - Google Gemini APIの実装"""
 
-from typing import Optional, Type, Dict, Any
+from typing import Optional, Type, Dict, Any, AsyncIterator
 from pydantic import BaseModel
 import google.generativeai as genai
 import logging
+import asyncio
+import time
+from contextlib import asynccontextmanager
 
 from src.core.providers.llm import LLMProvider
 from src.core.exceptions import (
@@ -17,15 +20,71 @@ from src.core.exceptions import (
 logger = logging.getLogger(__name__)
 
 
+class RateLimiter:
+    """シンプルなレート制限器
+    
+    スライディングウィンドウ方式でレート制限を実装。
+    指定された時間内のリクエスト数を制限します。
+    
+    Example:
+        >>> limiter = RateLimiter(requests_per_minute=60)
+        >>> await limiter.acquire()  # リクエストスロットを取得
+    """
+    
+    def __init__(self, requests_per_minute: int):
+        """
+        Args:
+            requests_per_minute: 1分あたりの最大リクエスト数
+        """
+        self.requests_per_minute = requests_per_minute
+        self.requests: list[float] = []
+        self._lock = asyncio.Lock()
+    
+    async def acquire(self):
+        """リクエストスロットを取得（必要なら待機）
+        
+        1分以内のリクエスト数が上限に達している場合、
+        最も古いリクエストから1分経過するまで待機します。
+        """
+        async with self._lock:
+            now = time.time()
+            
+            # 1分以上前のリクエストを削除
+            self.requests = [r for r in self.requests if now - r < 60]
+            
+            if len(self.requests) >= self.requests_per_minute:
+                # 待機時間を計算
+                oldest = self.requests[0]
+                wait_time = 60 - (now - oldest) + 0.1  # 少し余裕を持たせる
+                if wait_time > 0:
+                    logger.debug(f"Rate limit reached, waiting {wait_time:.2f} seconds")
+                    await asyncio.sleep(wait_time)
+                    # 再度チェック
+                    now = time.time()
+                    self.requests = [r for r in self.requests if now - r < 60]
+            
+            self.requests.append(now)
+            logger.debug(f"Rate limiter: {len(self.requests)}/{self.requests_per_minute} requests in last minute")
+
+
 class GeminiProvider(LLMProvider):
-    """Gemini LLMプロバイダー実装
+    """Gemini LLMプロバイダー実装（コネクションプールとレート制限対応）
     
     Google Gemini APIを使用したLLMプロバイダー。
     依存性注入可能で、テスト時にモックに置き換えられます。
     
+    パフォーマンス最適化機能：
+    - セマフォによる同時リクエスト数の制限
+    - レート制限による API クォータ管理
+    - タイムアウト設定
+    
     Example:
         >>> from src.core.config import settings
-        >>> provider = GeminiProvider(api_key=settings.gemini_api_key)
+        >>> provider = GeminiProvider(
+        ...     api_key=settings.gemini_api_key,
+        ...     max_concurrent_requests=5,
+        ...     rate_limit_per_minute=60
+        ... )
         >>> response = await provider.generate("Hello, AI!")
         >>> print(response)
     """
@@ -33,20 +92,47 @@ class GeminiProvider(LLMProvider):
     def __init__(
         self, 
         api_key: str,
-        model: str = "gemini-2.0-flash-exp"
+        model: str = "gemini-2.0-flash-exp",
+        max_concurrent_requests: int = 5,
+        rate_limit_per_minute: int = 60,
+        timeout: float = 30.0
     ):
         """
         Args:
             api_key: Gemini APIキー
             model: 使用するモデル名
+            max_concurrent_requests: 同時リクエスト数の上限（デフォルト: 5）
+            rate_limit_per_minute: 1分あたりのリクエスト数上限（デフォルト: 60）
+            timeout: リクエストタイムアウト（秒、デフォルト: 30.0）
         """
         self.api_key = api_key
         self.model = model
+        self.timeout = timeout
+        
+        # コネクションプール（セマフォで同時実行数を制限）
+        self._semaphore = asyncio.Semaphore(max_concurrent_requests)
+        
+        # レート制限
+        self._rate_limiter = RateLimiter(rate_limit_per_minute)
         
         # APIを設定
         genai.configure(api_key=api_key)
         
-        logger.info(f"GeminiProvider initialized with model: {model}")
+        logger.info(
+            f"GeminiProvider initialized: model={model}, "
+            f"max_concurrent={max_concurrent_requests}, "
+            f"rate_limit={rate_limit_per_minute}/min"
+        )
+    
+    @asynccontextmanager
+    async def _acquire_slot(self) -> AsyncIterator[None]:
+        """リクエストスロットを取得
+        
+        セマフォとレート制限の両方を考慮してスロットを取得します。
+        """
+        async with self._semaphore:
+            await self._rate_limiter.acquire()
+            yield
     
     async def generate(
         self,
@@ -55,41 +141,58 @@ class GeminiProvider(LLMProvider):
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> str:
-        """テキスト生成
+        """テキスト生成（レート制限とコネクションプール対応）
         
         Raises:
             LLMAuthenticationError: API認証に失敗した場合
             LLMRateLimitError: レート制限に達した場合
             LLMGenerationError: その他の生成エラー
         """
-        try:
-            generation_config = {
-                "temperature": temperature,
-                **kwargs
-            }
-            
-            if max_tokens:
-                generation_config["max_output_tokens"] = max_tokens
-            
-            model_instance = genai.GenerativeModel(
-                model_name=self.model,
-                generation_config=generation_config
-            )
-            
-            logger.info(f"Generating text with Gemini (temp: {temperature})")
-            response = model_instance.generate_content(prompt)
-            
-            if not response.text:
-                raise LLMGenerationError(
-                    "Empty response from Gemini API",
-                    details={
-                        "model": self.model,
-                        "prompt_length": len(prompt),
-                        "temperature": temperature
-                    }
+        # リクエストスロットを取得（レート制限と同時実行数制限）
+        async with self._acquire_slot():
+            try:
+                generation_config = {
+                    "temperature": temperature,
+                    **kwargs
+                }
+                
+                if max_tokens:
+                    generation_config["max_output_tokens"] = max_tokens
+                
+                model_instance = genai.GenerativeModel(
+                    model_name=self.model,
+                    generation_config=generation_config
                 )
-            
-            return response.text.strip()
+                
+                logger.info(f"Generating text with Gemini (temp: {temperature})")
+                
+                # タイムアウト付きで実行
+                try:
+                    response = await asyncio.wait_for(
+                        asyncio.to_thread(model_instance.generate_content, prompt),
+                        timeout=self.timeout
+                    )
+                except asyncio.TimeoutError:
+                    raise LLMGenerationError(
+                        f"Gemini API request timed out after {self.timeout} seconds",
+                        details={
+                            "model": self.model,
+                            "prompt_length": len(prompt),
+                            "timeout": self.timeout
+                        }
+                    )
+                
+                if not response.text:
+                    raise LLMGenerationError(
+                        "Empty response from Gemini API",
+                        details={
+                            "model": self.model,
+                            "prompt_length": len(prompt),
+                            "temperature": temperature
+                        }
+                    )
+                
+                return response.text.strip()
             
         except ValueError as e:
             error_msg = str(e).lower()
