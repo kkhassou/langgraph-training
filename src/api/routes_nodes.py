@@ -3,18 +3,18 @@ from typing import Dict, Any
 
 from src.nodes.llm.gemini import GeminiInput, gemini_node_handler
 from src.nodes.document.ppt_ingest import ppt_ingest_handler
-from src.nodes.integrations.mcp.slack import SlackMCPInput, slack_mcp_node_handler
-from src.nodes.integrations.mcp.notion import NotionMCPInput, notion_mcp_node_handler
-from src.nodes.integrations.mcp.github import GitHubMCPInput, github_mcp_node_handler
-from src.nodes.integrations.mcp.gmail import GmailMCPInput, gmail_mcp_node_handler
-from src.nodes.integrations.mcp.google_calendar import CalendarMCPInput, calendar_mcp_node_handler
-from src.nodes.integrations.mcp.google_sheets import SheetsMCPInput, sheets_mcp_node_handler
-from src.nodes.integrations.mcp.google_docs import DocsMCPInput, docs_mcp_node_handler
-from src.nodes.integrations.mcp.google_slides import SlidesMCPInput, slides_mcp_node_handler
-from src.nodes.integrations.mcp.google_forms import FormsMCPInput, forms_mcp_node_handler
-from src.nodes.integrations.mcp.google_keep import KeepMCPInput, keep_mcp_node_handler
-from src.nodes.integrations.mcp.google_apps_script import AppsScriptMCPInput, apps_script_mcp_node_handler
-from src.nodes.integrations.mcp.vertex_ai import VertexAIMCPInput, vertex_ai_mcp_node_handler
+from src.nodes.integrations.slack import SlackInput, slack_node_handler
+from src.nodes.integrations.notion import NotionInput, notion_node_handler
+from src.nodes.integrations.github import GitHubInput, github_node_handler
+from src.nodes.integrations.google.gmail import GmailInput, gmail_node_handler
+from src.nodes.integrations.google.calendar import GoogleCalendarInput, calendar_node_handler
+from src.nodes.integrations.google.sheets import GoogleSheetsInput, sheets_node_handler
+from src.nodes.integrations.google.docs import GoogleDocsInput, docs_node_handler
+from src.nodes.integrations.google.slides import GoogleSlidesInput, slides_node_handler
+from src.nodes.integrations.google.forms import GoogleFormsInput, forms_node_handler
+from src.nodes.integrations.google.keep import GoogleKeepInput, keep_node_handler
+from src.nodes.integrations.google.apps_script import GoogleAppsScriptInput, apps_script_node_handler
+from src.nodes.integrations.google.vertex_ai import VertexAiInput, vertex_ai_node_handler
 from src.nodes.rag.rag_node import RAGInput, rag_node_handler
 from src.nodes.rag.document_ingest_node import DocumentIngestInput, document_ingest_handler
 from src.nodes.rag.search_node import SearchInput, search_node_handler
@@ -329,121 +329,121 @@ async def call_ppt_ingest_node(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/slack-mcp")
-async def call_slack_mcp_node(input_data: SlackMCPInput):
+@router.post("/slack")
+async def call_slack_node(input_data: SlackInput):
     """Execute Slack node via MCP server"""
     try:
-        result = await slack_mcp_node_handler(input_data)
+        result = await slack_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/notion-mcp")
-async def call_notion_mcp_node(input_data: NotionMCPInput):
+@router.post("/notion")
+async def call_notion_node(input_data: NotionInput):
     """Execute Notion node via MCP server"""
     try:
-        result = await notion_mcp_node_handler(input_data)
+        result = await notion_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/github-mcp")
-async def call_github_mcp_node(input_data: GitHubMCPInput):
+@router.post("/github")
+async def call_github_node(input_data: GitHubInput):
     """Execute GitHub node via MCP server"""
     try:
-        result = await github_mcp_node_handler(input_data)
+        result = await github_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/gmail-mcp")
-async def call_gmail_mcp_node(input_data: GmailMCPInput):
+@router.post("/gmail")
+async def call_gmail_node(input_data: GmailInput):
     """Execute Gmail node via MCP server"""
     try:
-        result = await gmail_mcp_node_handler(input_data)
+        result = await gmail_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/calendar-mcp")
-async def call_calendar_mcp_node(input_data: CalendarMCPInput):
+@router.post("/calendar")
+async def call_calendar_mcp_node(input_data: GoogleCalendarInput):
     """Execute Google Calendar node via MCP server"""
     try:
-        result = await calendar_mcp_node_handler(input_data)
+        result = await calendar_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/sheets-mcp")
-async def call_sheets_mcp_node(input_data: SheetsMCPInput):
+@router.post("/sheets")
+async def call_sheets_mcp_node(input_data: GoogleSheetsInput):
     """Execute Google Sheets node via MCP server"""
     try:
-        result = await sheets_mcp_node_handler(input_data)
+        result = await sheets_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/docs-mcp")
-async def call_docs_mcp_node(input_data: DocsMCPInput):
+@router.post("/docs")
+async def call_docs_mcp_node(input_data: GoogleDocsInput):
     """Execute Google Docs node via MCP server"""
     try:
-        result = await docs_mcp_node_handler(input_data)
+        result = await docs_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/slides-mcp")
-async def call_slides_mcp_node(input_data: SlidesMCPInput):
+@router.post("/slides")
+async def call_slides_mcp_node(input_data: GoogleSlidesInput):
     """Execute Google Slides node via MCP server"""
     try:
-        result = await slides_mcp_node_handler(input_data)
+        result = await slides_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/forms-mcp")
-async def call_forms_mcp_node(input_data: FormsMCPInput):
+@router.post("/forms")
+async def call_forms_mcp_node(input_data: GoogleFormsInput):
     """Execute Google Forms node via MCP server"""
     try:
-        result = await forms_mcp_node_handler(input_data)
+        result = await forms_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/keep-mcp")
-async def call_keep_mcp_node(input_data: KeepMCPInput):
+@router.post("/keep")
+async def call_keep_mcp_node(input_data: GoogleKeepInput):
     """Execute Google Keep node via MCP server"""
     try:
-        result = await keep_mcp_node_handler(input_data)
+        result = await keep_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/apps-script-mcp")
-async def call_apps_script_mcp_node(input_data: AppsScriptMCPInput):
+async def call_apps_script_mcp_node(input_data: GoogleAppsScriptInput):
     """Execute Google Apps Script node via MCP server"""
     try:
-        result = await apps_script_mcp_node_handler(input_data)
+        result = await apps_script_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/vertex-ai-mcp")
-async def call_vertex_ai_mcp_node(input_data: VertexAIMCPInput):
+async def call_vertex_ai_mcp_node(input_data: VertexAiInput):
     """Execute Vertex AI node via MCP server"""
     try:
-        result = await vertex_ai_mcp_node_handler(input_data)
+        result = await vertex_ai_node_handler(input_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
