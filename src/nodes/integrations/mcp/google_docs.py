@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 import logging
 
-from src.mcp.clients.google_docs import DocsMCPService
+from src.mcp.google.docs.client import DocsMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)

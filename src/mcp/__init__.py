@@ -3,8 +3,17 @@ MCP (Model Context Protocol) Integration
 
 このモジュールは MCP サーバーとクライアントの実装を提供します。
 
-構造:
-- servers/: MCP サーバー実装（独立プロセスとして動作）
-- clients/: MCP クライアント実装（サーバーと通信するためのクライアント）
+新しい構造:
+各サービスごとにフォルダが分かれており、その中に client.py と server.py が含まれます。
+
+例:
+- src/mcp/slack/ - Slack統合
+  - client.py - クライアント実装
+  - server.py - サーバー実装
+- src/mcp/github/ - GitHub統合
+  - client.py - クライアント実装
+  - server.py - サーバー実装
+
+詳細は README.md を参照してください。
 """
 

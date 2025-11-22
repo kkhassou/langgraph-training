@@ -16,7 +16,7 @@ import asyncio
 from src.nodes.todo.todo_parser import todo_parser_node
 from src.nodes.todo.todo_advisor import todo_advisor_node
 from src.nodes.todo.email_composer import email_composer_node
-from src.mcp.clients.gmail import GmailMCPService
+from src.mcp.google.gmail.client import GmailMCPService
 
 logger = logging.getLogger(__name__)
 

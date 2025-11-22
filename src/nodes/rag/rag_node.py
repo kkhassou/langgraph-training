@@ -1,11 +1,10 @@
+"""RAG Node - シンプルな検索拡張生成ノード"""
+
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
+
 from src.nodes.base import BaseNode, NodeState, NodeInput, NodeOutput
-from src.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
-from src.infrastructure.vector_stores.supabase import SupabaseVectorStore, Document
-from src.infrastructure.vector_stores.local import LocalVectorStore
-from src.nodes.llm.gemini import GeminiNode
-from src.core.config import settings
+from src.services.rag.rag_service import RAGService
 
 
 class RAGInput(NodeInput):
@@ -30,105 +29,49 @@ class RAGOutput(NodeOutput):
 
 
 class RAGNode(BaseNode):
-    """RAG (Retrieval-Augmented Generation) Node"""
+    """RAG (Retrieval-Augmented Generation) Node
+    
+    シンプルなOrchestrationのみ - 実際の処理はRAGServiceに委譲
+    """
 
     def __init__(self):
         super().__init__(
             name="rag_node",
             description="Retrieve relevant documents and generate augmented response"
         )
-        self.embedding_provider = None
-        self.vector_store = None
-        self.llm_provider = None
-
-    def _initialize_components(self):
-        """Initialize RAG components lazily"""
-        if self.embedding_provider is None:
-            self.embedding_provider = GeminiEmbeddingProvider(
-                model_name=settings.gemini_embedding_model,
-                dimension=settings.embedding_dimension
-            )
-
-        if self.vector_store is None:
-            # Try Supabase first, fallback to local store
-            try:
-                if settings.supabase_url and settings.supabase_key:
-                    self.vector_store = SupabaseVectorStore(
-                        dimension=settings.embedding_dimension
-                    )
-                    print("Using Supabase vector store")
-                else:
-                    raise ValueError("Supabase credentials not configured")
-            except Exception as e:
-                print(f"Supabase initialization failed: {str(e)}")
-                print("Falling back to local vector store")
-                self.vector_store = LocalVectorStore(
-                    dimension=settings.embedding_dimension
-                )
-                print("Using local vector store")
-
-        if self.llm_provider is None:
-            self.llm_provider = GeminiNode()
+        self.rag_service = RAGService()
 
     async def execute(self, state: NodeState) -> NodeState:
-        """Execute RAG workflow"""
+        """Execute RAG workflow - サービスに委譲"""
         try:
-            self._initialize_components()
-
-            # Get query from state
+            # パラメータを取得
             query = state.data.get("query", "")
             collection_name = state.data.get("collection_name", "default_collection")
             top_k = state.data.get("top_k", 5)
+            include_metadata = state.data.get("include_metadata", True)
 
             if not query:
                 state.data["error"] = "Query is required for RAG"
                 return state
 
-            # Step 1: Generate query embedding
-            query_embedding = await self.embedding_provider.embed_query(query)
-
-            # Step 2: Retrieve relevant documents
-            search_results = await self.vector_store.search(
+            # ✅ RAGServiceに全ての処理を委譲（たった1行！）
+            result = await self.rag_service.query(
+                query=query,
                 collection_name=collection_name,
-                query_embedding=query_embedding,
-                top_k=top_k
+                top_k=top_k,
+                include_embedding=include_metadata
             )
 
-            # Step 3: Prepare context from retrieved documents
-            context_parts = []
-            retrieved_docs = []
-
-            for result in search_results:
-                context_parts.append(f"Document {result.rank + 1}: {result.document.content}")
-                retrieved_docs.append({
-                    "id": result.document.id,
-                    "content": result.document.content,
-                    "metadata": result.document.metadata,
-                    "score": result.score,
-                    "rank": result.rank
-                })
-
-            context = "\n\n".join(context_parts)
-
-            # Step 4: Generate augmented prompt
-            augmented_prompt = self._create_augmented_prompt(query, context)
-
-            # Step 5: Generate response using LLM
-            llm_state = NodeState()
-            llm_state.messages = [augmented_prompt]
-            llm_result = await self.llm_provider.execute(llm_state)
-            llm_response = llm_result.data.get("llm_response", "No response generated")
-
-            # Update state with results
+            # 結果をstateに格納
             state.data.update({
-                "rag_answer": llm_response,
-                "retrieved_documents": retrieved_docs,
-                "query_embedding": query_embedding,
-                "context_used": context
+                "rag_answer": result.answer,
+                "retrieved_documents": result.retrieved_documents,
+                "query_embedding": result.query_embedding,
+                "context_used": result.context_used
             })
 
             state.metadata["node"] = self.name
-            state.metadata["documents_retrieved"] = len(retrieved_docs)
+            state.metadata["documents_retrieved"] = len(result.retrieved_documents)
 
             return state
 
@@ -136,23 +79,6 @@ class RAGNode(BaseNode):
             state.data["error"] = f"RAG execution failed: {str(e)}"
             state.metadata["error_node"] = self.name
             return state
-
-    def _create_augmented_prompt(self, query: str, context: str) -> str:
-        """Create prompt with retrieved context"""
-        return f"""あなたは質問応答システムです。以下の文脈情報を参考にして、ユーザーの質問に答えてください。
-
-文脈情報:
-{context}
-
-質問: {query}
-
-回答は以下の点に注意してください：
-1. 文脈情報に基づいて正確に答える
-2. 文脈情報にない内容については推測しない
-3. 情報が不足している場合は明確に述べる
-4. 自然で読みやすい日本語で回答する
-
-回答:"""
 
 
 async def rag_node_handler(input_data: RAGInput) -> RAGOutput:

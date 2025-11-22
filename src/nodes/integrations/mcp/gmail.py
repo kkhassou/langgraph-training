@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 import logging
 
-from src.mcp.clients.gmail import GmailMCPService
+from src.mcp.google.gmail.client import GmailMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)

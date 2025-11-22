@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 import logging
 
-from src.mcp.clients.google_slides import SlidesMCPService
+from src.mcp.google.slides.client import SlidesMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)

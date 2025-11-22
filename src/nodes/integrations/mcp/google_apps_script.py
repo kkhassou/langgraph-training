@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 import logging
 
-from src.mcp.clients.google_apps_script import AppsScriptMCPService
+from src.mcp.google.apps_script.client import AppsScriptMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)

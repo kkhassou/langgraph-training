@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 import logging
 
-from src.mcp.clients.google_calendar import CalendarMCPService
+from src.mcp.google.calendar.client import CalendarMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 import logging
 
-from src.mcp.clients.vertex_ai import VertexAIMCPService
+from src.mcp.google.vertex_ai.client import VertexAIMCPService
 from src.nodes.base import BaseNode, NodeResult
 
 logger = logging.getLogger(__name__)
