@@ -1,54 +1,79 @@
-from typing import Dict, Any, Optional, List
-import json
-import logging
+"""Base MCP Service - MCP サービスの基底クラス"""
+
 from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional, List
+import logging
 
 logger = logging.getLogger(__name__)
 
 
-class MCPError(Exception):
-    """Base exception for MCP-related errors"""
-    pass
-
-
-class MCPConnectionError(MCPError):
-    """Raised when MCP server connection fails"""
-    pass
-
-
-class MCPToolError(MCPError):
-    """Raised when MCP tool execution fails"""
-    pass
-
-
-class BaseMCPClient(ABC):
-    """Base class for MCP clients"""
-
-    def __init__(self, server_name: str):
-        self.server_name = server_name
-        self.connected = False
-        self.tools = {}
-
+class BaseMCPService(ABC):
+    """MCPサービスの基底クラス"""
+    
+    def __init__(self, service_name: str):
+        """
+        Args:
+            service_name: サービス名（slack, github, gmail など）
+        """
+        self.service_name = service_name
+        self._client = None
+    
     @abstractmethod
-    async def connect(self) -> bool:
-        """Connect to MCP server"""
+    async def initialize(self):
+        """
+        サービスの初期化
+        
+        サブクラスでクライアントの初期化を実装
+        """
         pass
-
+    
+    async def _ensure_initialized(self):
+        """クライアントが初期化されているか確認"""
+        if self._client is None:
+            await self.initialize()
+    
     @abstractmethod
-    async def disconnect(self) -> None:
-        """Disconnect from MCP server"""
+    async def call_tool(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        MCPツールを呼び出し
+        
+        Args:
+            tool_name: ツール名
+            arguments: ツールの引数
+        
+        Returns:
+            ツールの実行結果
+        """
         pass
-
-    @abstractmethod
-    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a tool on the MCP server"""
-        pass
-
+    
     @abstractmethod
     async def list_tools(self) -> List[Dict[str, Any]]:
-        """Get list of available tools from MCP server"""
+        """
+        利用可能なツールのリストを取得
+        
+        Returns:
+            ツールのリスト
+        """
         pass
+    
+    async def health_check(self) -> bool:
+        """
+        サービスの健全性チェック
+        
+        Returns:
+            サービスが正常かどうか
+        """
+        try:
+            await self._ensure_initialized()
+            return self._client is not None
+        except Exception as e:
+            logger.error(f"{self.service_name} health check failed: {e}")
+            return False
+    
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(service={self.service_name})"
 
-    def is_connected(self) -> bool:
-        """Check if client is connected to server"""
-        return self.connected

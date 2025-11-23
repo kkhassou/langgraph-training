@@ -6,14 +6,11 @@ import os
 import sys
 from pathlib import Path
 
-# Add the parent directory to the Python path to import app modules
+# Add the parent directory to the Python path to import modules
 sys.path.append(str(Path(__file__).parent.parent))
 
-from app.graphs.simple_chat import SimpleChatGraph
-from app.graphs.ppt_summary import PPTSummaryGraph
-from app.graphs.slack_report import SlackReportGraph
-from app.patterns.reflection import ReflectionGraph
-from app.patterns.chain_of_thought import ChainOfThoughtGraph
+from src.workflows.basic import SimpleChatGraph, PPTSummaryGraph, SlackReportGraph
+from src.workflows.patterns import ReflectionGraph, ChainOfThoughtGraph
 
 
 def generate_diagrams():
@@ -32,7 +29,7 @@ def generate_diagrams():
         "chain_of_thought": ChainOfThoughtGraph()
     }
 
-    print("<� Generating Mermaid diagrams for all workflows...\n")
+    print("🎨 Generating Mermaid diagrams for all workflows...\n")
 
     # Generate diagram files
     for name, graph in graphs.items():
@@ -88,21 +85,21 @@ def generate_diagrams():
             with open(html_file, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
-            print(f" Generated diagrams for {name}")
-            print(f"   =� Mermaid file: {mmd_file}")
-            print(f"   < HTML file: {html_file}")
+            print(f"✅ Generated diagrams for {name}")
+            print(f"   📄 Mermaid file: {mmd_file}")
+            print(f"   🌐 HTML file: {html_file}")
             print()
 
         except Exception as e:
-            print(f"L Error generating diagram for {name}: {str(e)}")
+            print(f"❌ Error generating diagram for {name}: {str(e)}")
             print()
 
     # Generate index.html
     generate_index_html(diagrams_dir, list(graphs.keys()))
 
-    print("<� All diagrams generated successfully!")
-    print(f"\n=� Output directory: {diagrams_dir}")
-    print("< Open docs/diagrams/index.html to view all diagrams")
+    print("🎉 All diagrams generated successfully!")
+    print(f"\n📁 Output directory: {diagrams_dir}")
+    print("🌐 Open docs/diagrams/index.html to view all diagrams")
 
 
 def _get_workflow_description(name: str) -> str:
@@ -139,7 +136,7 @@ def generate_index_html(diagrams_dir: Path, workflow_names: list):
 </head>
 <body>
     <div class="container">
-        <h1>= LangGraph Training - Workflow Diagrams</h1>
+        <h1>🎨 LangGraph Training - Workflow Diagrams</h1>
 
         <p style="text-align: center; color: #666; font-size: 18px;">
             Visual representations of all workshop workflows and patterns
@@ -178,12 +175,12 @@ def generate_index_html(diagrams_dir: Path, workflow_names: list):
     with open(index_file, "w", encoding="utf-8") as f:
         f.write(index_content)
 
-    print(f"=� Generated index file: {index_file}")
+    print(f"📝 Generated index file: {index_file}")
 
 
 if __name__ == "__main__":
     try:
         generate_diagrams()
     except Exception as e:
-        print(f"L Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
         sys.exit(1)

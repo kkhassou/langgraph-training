@@ -106,7 +106,7 @@ async def execute_todo_workflow_and_respond(
 ):
     """Execute TODO workflow and send results to Slack"""
     try:
-        from src.workflows.todo_workflow import run_todo_workflow
+        from src.workflows.todo import run_todo_workflow
 
         logger.info(f"Executing TODO workflow for {user_name}")
 

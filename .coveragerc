@@ -1,0 +1,54 @@
+[run]
+# カバレッジ測定の設定
+source = src
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */venv/*
+    */env/*
+    */.venv/*
+    */site-packages/*
+    */migrations/*
+    */alembic/*
+
+branch = True
+parallel = True
+
+[report]
+# レポート設定
+precision = 2
+show_missing = True
+skip_covered = False
+sort = Cover
+
+exclude_lines =
+    # デフォルトの除外行
+    pragma: no cover
+    def __repr__
+    def __str__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+    @abstractmethod
+    pass
+    \.\.\.
+    # カスタム除外行
+    # 開発中のコード
+    raise NotImplementedError
+    # デバッグコード
+    if settings.debug:
+    # 型チェック専用
+    if typing.TYPE_CHECKING:
+
+[html]
+# HTMLレポート設定
+directory = htmlcov
+title = LangGraph Training - Code Coverage Report
+
+[xml]
+# XMLレポート設定（CI/CD用）
+output = coverage.xml
+

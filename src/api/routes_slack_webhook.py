@@ -126,7 +126,7 @@ async def handle_app_mention(event: Dict[str, Any]):
     # TODO: Process the mention and respond
     # Example: Trigger TODO workflow if message contains TODO items
     if "TODO" in text.upper() or "タスク" in text:
-        from src.workflows.todo_workflow import run_todo_workflow
+        from src.workflows.todo import run_todo_workflow
 
         # Extract user email (would need to fetch from Slack API)
         user_email = f"{user}@example.com"  # Placeholder
