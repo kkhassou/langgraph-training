@@ -20,25 +20,6 @@ from src.workflows.composite.intelligent_chat.reflection import (
     ReflectionOutput
 )
 from src.providers.llm.mock import MockLLMProvider
-from src.core.containers import Container
-
-
-@pytest.fixture
-def mock_container():
-    """テスト用のDIコンテナ（モックプロバイダー使用）"""
-    container = Container()
-    container.config.from_dict({
-        'llm_provider_type': 'mock',
-        'mock': {
-            'responses': {
-                'Python の特徴を3つ挙げてください': 
-                    '1. 読みやすい構文\n2. 豊富なライブラリ\n3. 動的型付け',
-                'なぜ空は青いのですか？':
-                    'レイリー散乱という現象により、青い光が散乱されるためです。'
-            }
-        }
-    })
-    return container
 
 
 class TestAtomicWorkflows:

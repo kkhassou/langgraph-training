@@ -1,11 +1,15 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from typing import Dict, Any
 
 # ✅ 新しい構造からのインポート
-from src.nodes.blocks.llm import LLMInput, llm_node_handler
+from src.nodes.blocks.llm import LLMInput, llm_node_handler, LLMNode
 from src.nodes.io.loader import LoaderInput, ppt_ingest_handler
 from src.nodes.tools.slack import SlackInput, slack_node_handler
 from src.nodes.blocks.retrieval import RetrievalInput, retrieval_node_handler
+
+# Dependencies
+from src.api.dependencies import get_llm_node, get_llm_provider
+from src.core.providers.llm import LLMProvider
 
 # ⚠️ 以下の統合は現在リファクタリング中または削除されました
 # from src.nodes.integrations.notion import NotionInput, notion_node_handler
@@ -79,9 +83,17 @@ async def list_nodes():
 
 
 @router.post("/llm")
-async def run_llm_node(input_data: LLMInput):
-    """Run generic LLM node"""
-    result = await llm_node_handler(input_data)
+async def run_llm_node(
+    input_data: LLMInput,
+    provider: LLMProvider = Depends(get_llm_provider)
+):
+    """Run generic LLM node
+    
+    依存性注入により、LLMProviderが自動的に提供されます。
+    テスト時には異なるプロバイダーを注入できます。
+    """
+    # ノードハンドラーに依存性を渡して実行
+    result = await llm_node_handler(input_data, provider=provider)
     if not result.success:
         raise HTTPException(status_code=500, detail=result.error_message)
     return result
@@ -89,9 +101,15 @@ async def run_llm_node(input_data: LLMInput):
 
 # 後方互換性エイリアス
 @router.post("/gemini")
-async def run_gemini_node(input_data: LLMInput):
-    """Run Gemini node (Alias for LLM node)"""
-    return await run_llm_node(input_data)
+async def run_gemini_node(
+    input_data: LLMInput,
+    provider: LLMProvider = Depends(get_llm_provider)
+):
+    """Run Gemini node (Alias for LLM node)
+    
+    依存性注入により、LLMProviderが自動的に提供されます。
+    """
+    return await run_llm_node(input_data, provider)
 
 
 @router.post("/loader")

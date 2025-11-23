@@ -172,3 +172,62 @@ class LLMInput(NodeInput):
 class LLMOutput(NodeOutput):
     """Output model for LLM node"""
     pass
+
+
+# ============================================================================
+# Handler Function for FastAPI
+# ============================================================================
+
+async def llm_node_handler(
+    input_data: LLMInput,
+    provider: Optional[LLMProvider] = None
+) -> LLMOutput:
+    """LLMノードのハンドラー関数
+    
+    FastAPIルートから呼び出されるハンドラー関数。
+    依存性注入により、プロバイダーを外部から注入できます。
+    
+    Args:
+        input_data: LLM入力データ
+        provider: LLMプロバイダー（省略時はデフォルトのGeminiプロバイダー）
+    
+    Returns:
+        LLMOutput: 実行結果
+    
+    Example:
+        >>> from src.api.dependencies import get_llm_provider
+        >>> provider = get_llm_provider()
+        >>> result = await llm_node_handler(
+        >>>     LLMInput(prompt="Hello"),
+        >>>     provider=provider
+        >>> )
+    """
+    # デフォルトプロバイダー
+    if provider is None:
+        from src.providers.llm.gemini import GeminiProvider
+        provider = GeminiProvider(
+            api_key=settings.gemini_api_key,
+            model="gemini-2.0-flash-exp"
+        )
+    
+    # ノードを作成
+    node = LLMNode(provider=provider, name="llm_handler")
+    
+    # 状態を作成
+    state = NodeState()
+    state.data["prompt"] = input_data.prompt
+    state.data["temperature"] = input_data.temperature
+    if input_data.max_tokens:
+        state.data["max_tokens"] = input_data.max_tokens
+    if input_data.system_prompt:
+        state.data["system_prompt"] = input_data.system_prompt
+    
+    # 実行
+    result_state = await node.execute(state)
+    
+    # 結果を返す
+    response = result_state.data.get("llm_response", "")
+    return LLMOutput(
+        success=True,
+        data={"response": response}
+    )

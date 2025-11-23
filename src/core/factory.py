@@ -1,14 +1,14 @@
 """Provider Factory - プロバイダーの生成を管理するファクトリー
 
 このモジュールは後方互換性のために維持されています。
-新しいコードでは、src.core.containers.Container を使用することを推奨します。
+新しいコードでは、src.api.dependencies を使用することを推奨します。
 
 Example (旧):
     >>> from src.core.factory import ProviderFactory
     >>> provider = ProviderFactory.create_llm_provider()
 
 Example (新 - 推奨):
-    >>> from src.core.containers import get_llm_provider
+    >>> from src.api.dependencies import get_llm_provider
     >>> provider = get_llm_provider()
 """
 
@@ -28,9 +28,6 @@ from src.core.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
-
-# DIコンテナを使用するかどうかのフラグ
-_USE_DI_CONTAINER = True
 
 
 class ProviderFactory:
@@ -243,41 +240,35 @@ class ProviderFactory:
     def get_default_llm_provider(cls) -> LLMProvider:
         """デフォルトのLLMプロバイダーを取得
         
+        FastAPI Dependsシステムから取得します。
+        利用できない場合は直接作成します。
+        
         Returns:
             デフォルトのLLMプロバイダー（Gemini）
-        
-        Note:
-            _USE_DI_CONTAINERがTrueの場合、DIコンテナから取得します。
         """
-        if _USE_DI_CONTAINER:
-            try:
-                from src.core.containers import get_llm_provider
-                logger.debug("Using DI container for default LLM provider")
-                return get_llm_provider()
-            except Exception as e:
-                logger.warning(f"Failed to use DI container, falling back to direct creation: {e}")
-        
-        return cls.create_llm_provider(provider_type="gemini")
+        try:
+            from src.api.dependencies import get_llm_provider
+            return get_llm_provider()
+        except Exception as e:
+            logger.warning(f"Failed to use dependency injection, falling back to direct creation: {e}")
+            return cls.create_llm_provider(provider_type="gemini")
     
     @classmethod
     def get_default_rag_provider(cls) -> RAGProvider:
         """デフォルトのRAGプロバイダーを取得
         
+        FastAPI Dependsシステムから取得します。
+        利用できない場合は直接作成します。
+        
         Returns:
             デフォルトのRAGプロバイダー（Simple）
-        
-        Note:
-            _USE_DI_CONTAINERがTrueの場合、DIコンテナから取得します。
         """
-        if _USE_DI_CONTAINER:
-            try:
-                from src.core.containers import get_rag_provider
-                logger.debug("Using DI container for default RAG provider")
-                return get_rag_provider()
-            except Exception as e:
-                logger.warning(f"Failed to use DI container, falling back to direct creation: {e}")
-        
-        return cls.create_rag_provider(provider_type="simple")
+        try:
+            from src.api.dependencies import get_rag_provider
+            return get_rag_provider()
+        except Exception as e:
+            logger.warning(f"Failed to use dependency injection, falling back to direct creation: {e}")
+            return cls.create_rag_provider(provider_type="simple")
 
 
 # 便利な関数エイリアス

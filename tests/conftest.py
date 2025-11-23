@@ -6,9 +6,10 @@
 import pytest
 import asyncio
 from typing import Dict, Any, Generator
+from fastapi.testclient import TestClient
 
 from src.providers.llm.mock import MockLLMProvider
-from src.core.containers import Container, reset_container
+from src.main import app
 
 
 @pytest.fixture(scope="session")
@@ -32,30 +33,33 @@ def mock_llm_provider() -> MockLLMProvider:
 
 
 @pytest.fixture
-def test_container() -> Generator[Container, None, None]:
-    """テスト用のDIコンテナ
+def test_client() -> Generator[TestClient, None, None]:
+    """テスト用のFastAPIクライアント
     
-    テスト前にリセットし、テスト後もクリーンアップします。
+    FastAPIのTestClientを使用してAPIエンドポイントをテストします。
+    依存性のオーバーライドが可能です。
     """
-    # テスト前にコンテナをリセット
-    reset_container()
-    
-    # 新しいコンテナを作成
-    container = Container()
-    container.config.from_dict({
-        'llm_provider_type': 'mock',
-        'rag_provider_type': 'simple',
-        'mock': {
-            'responses': {
-                'test': 'test response'
-            }
-        }
-    })
-    
-    yield container
+    with TestClient(app) as client:
+        yield client
     
     # テスト後にクリーンアップ
-    reset_container()
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_dependencies():
+    """依存性をモックに置き換えるヘルパー
+    
+    Example:
+        >>> def test_example(test_client, mock_dependencies):
+        >>>     from src.api.dependencies import get_llm_provider
+        >>>     mock_dependencies(get_llm_provider, MockLLMProvider())
+        >>>     response = test_client.post("/workflows/atomic/chat", ...)
+    """
+    def _override(dependency_callable, mock_obj):
+        app.dependency_overrides[dependency_callable] = lambda: mock_obj
+    
+    return _override
 
 
 @pytest.fixture
